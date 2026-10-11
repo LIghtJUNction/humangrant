@@ -13,34 +13,61 @@ pub struct Error {
 
 impl Error {
     pub fn new(status: u16, error: &'static str, message: &'static str) -> Self {
-        Self { status, error, message, retry_after_seconds: 0 }
+        Self {
+            status,
+            error,
+            message,
+            retry_after_seconds: 0,
+        }
     }
 
     pub fn invalid() -> Self {
-        Self::new(400, "invalid_request", "The request is not valid for this protocol version.")
+        Self::new(
+            400,
+            "invalid_request",
+            "The request is not valid for this protocol version.",
+        )
     }
 
     pub fn forbidden() -> Self {
-        Self::new(403, "forbidden", "This identity does not have permission for this operation.")
+        Self::new(
+            403,
+            "forbidden",
+            "This identity does not have permission for this operation.",
+        )
     }
 
     pub fn state() -> Self {
-        Self::new(409, "invalid_state", "This operation is not allowed in the current state.")
+        Self::new(
+            409,
+            "invalid_state",
+            "This operation is not allowed in the current state.",
+        )
     }
 
     pub fn not_found() -> Self {
-        Self::new(404, "not_found", "The requested object is not available to this identity.")
+        Self::new(
+            404,
+            "not_found",
+            "The requested object is not available to this identity.",
+        )
     }
 
     pub fn slow_down(seconds: u64) -> Self {
         Self {
-            status: 429, error: "slow_down", message: "Wait before reading the state again.",
+            status: 429,
+            error: "slow_down",
+            message: "Wait before reading the state again.",
             retry_after_seconds: seconds,
         }
     }
 
     pub fn internal() -> Self {
-        Self::new(500, "internal_error", "The server could not complete the operation.")
+        Self::new(
+            500,
+            "internal_error",
+            "The server could not complete the operation.",
+        )
     }
 }
 
@@ -51,11 +78,17 @@ impl std::fmt::Display for Error {
 }
 impl std::error::Error for Error {}
 impl From<rusqlite::Error> for Error {
-    fn from(_: rusqlite::Error) -> Self { Self::internal() }
+    fn from(_: rusqlite::Error) -> Self {
+        Self::internal()
+    }
 }
 impl From<std::io::Error> for Error {
-    fn from(_: std::io::Error) -> Self { Self::internal() }
+    fn from(_: std::io::Error) -> Self {
+        Self::internal()
+    }
 }
 impl From<serde_json::Error> for Error {
-    fn from(_: serde_json::Error) -> Self { Self::invalid() }
+    fn from(_: serde_json::Error) -> Self {
+        Self::invalid()
+    }
 }

@@ -7,28 +7,54 @@ use rusqlite::{named_params, params, OptionalExtension};
 use serde_json::{json, Value};
 
 pub fn normalize_email(email: &str) -> Result<String> {
-    if email.contains(['\r','\n']) { return Err(Error::invalid()); }
-    let email=email.trim().to_ascii_lowercase();
-    if email.len()>254 || !email.is_ascii() || email.bytes().any(|b| b<=32 || b==127) {
+    if email.contains(['\r', '\n']) {
         return Err(Error::invalid());
     }
-    let (local,domain)=email.split_once('@').ok_or_else(Error::invalid)?;
-    if local.is_empty() || local.len()>64 || local.starts_with('.') || local.ends_with('.')
-        || local.contains("..") || !local.bytes().all(|b| b.is_ascii_alphanumeric() || b".!#$%&'*+-/=?^_`{|}~".contains(&b))
-        || !domain.contains('.') || domain.split('.').any(|label| label.is_empty() || label.len()>63
-            || label.starts_with('-') || label.ends_with('-')
-            || !label.bytes().all(|b| b.is_ascii_alphanumeric() || b==b'-'))
-    { return Err(Error::invalid()); }
+    let email = email.trim().to_ascii_lowercase();
+    if email.len() > 254 || !email.is_ascii() || email.bytes().any(|b| b <= 32 || b == 127) {
+        return Err(Error::invalid());
+    }
+    let (local, domain) = email.split_once('@').ok_or_else(Error::invalid)?;
+    if local.is_empty()
+        || local.len() > 64
+        || local.starts_with('.')
+        || local.ends_with('.')
+        || local.contains("..")
+        || !local
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b".!#$%&'*+-/=?^_`{|}~".contains(&b))
+        || !domain.contains('.')
+        || domain.split('.').any(|label| {
+            label.is_empty()
+                || label.len() > 63
+                || label.starts_with('-')
+                || label.ends_with('-')
+                || !label
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
+    {
+        return Err(Error::invalid());
+    }
     Ok(email)
 }
 
-pub fn invite(store: &mut Store, config: &Config, proof: &Proof, id: &str, input: &EmailRequest,
-    source: &str) -> Result<Value>
-{
-    let email=normalize_email(&input.email)?;
+pub fn invite(
+    store: &mut Store,
+    config: &Config,
+    proof: &Proof,
+    id: &str,
+    input: &EmailRequest,
+    source: &str,
+) -> Result<Value> {
+    let email = normalize_email(&input.email)?;
     crate::config::validate_id(&input.idempotency_key)?;
-    if config.mail.mode=="disabled" {
-        return Err(Error::new(503,"mail_unavailable","Mail is not configured. Forward the human authorization link instead."));
+    if config.mail.mode == "disabled" {
+        return Err(Error::new(
+            503,
+            "mail_unavailable",
+            "Mail is not configured. Forward the human authorization link instead.",
+        ));
     }
     let result=store.atomic(|db,now| {
         let request=db::own_request(db,id,&proof.actor_id)?;
@@ -72,7 +98,9 @@ pub fn invite(store: &mut Store, config: &Config, proof: &Proof, id: &str, input
         })?;
         Ok(accepted(&operation,config))
     })?;
-    if config.mail.mode=="local" { spool_local(store,config)?; }
+    if config.mail.mode == "local" {
+        spool_local(store, config)?;
+    }
     Ok(result)
 }
 
@@ -92,14 +120,23 @@ pub fn spool_local(store: &mut Store, config: &Config) -> Result<bool> {
         }
         Ok(job)
     })?;
-    let processed=job.is_some();
-    if let Some((id,recipient,subject,body))=job {
-        let path=config.mail.spool.join(format!("{id}.eml"));
+    let processed = job.is_some();
+    if let Some((id, recipient, subject, body)) = job {
+        let path = config.mail.spool.join(format!("{id}.eml"));
         let content=format!("From: HumanGrant <no-reply@localhost.invalid>\r\nTo: {recipient}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}");
-        let result=db::private_file(&path,content.as_bytes());
-        let state=if result.is_ok() {"local_spooled"} else if path.exists() {"delivery_unknown"} else {"failed"};
-        store.atomic(|db,_| {
-            db.execute("UPDATE mail_operations SET state=?1,transport_updated_at=hg_now() WHERE id=?2",params![state,id])?;
+        let result = db::private_file(&path, content.as_bytes());
+        let state = if result.is_ok() {
+            "local_spooled"
+        } else if path.exists() {
+            "delivery_unknown"
+        } else {
+            "failed"
+        };
+        store.atomic(|db, _| {
+            db.execute(
+                "UPDATE mail_operations SET state=?1,transport_updated_at=hg_now() WHERE id=?2",
+                params![state, id],
+            )?;
             Ok(())
         })?;
     }

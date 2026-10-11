@@ -2,15 +2,25 @@ use crate::config::Config;
 use crate::crypto;
 use crate::error::{Error, Result};
 use crate::model::{display_state, Permission, State, PROTOCOL};
-use rusqlite::{functions::FunctionFlags, params, Connection, OptionalExtension, TransactionBehavior};
-use std::sync::{atomic::{AtomicI64, Ordering}, Arc};
+use rusqlite::{
+    functions::FunctionFlags, params, Connection, OptionalExtension, TransactionBehavior,
+};
+use std::sync::{
+    atomic::{AtomicI64, Ordering},
+    Arc,
+};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub trait Clock: Send + Sync { fn now(&self) -> i64; }
+pub trait Clock: Send + Sync {
+    fn now(&self) -> i64;
+}
 pub struct SystemClock;
 impl Clock for SystemClock {
     fn now(&self) -> i64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64
     }
 }
 
@@ -22,28 +32,47 @@ pub struct Store {
 
 impl Store {
     pub fn open(config: &Config, clock: Arc<dyn Clock>) -> Result<Self> {
-        if let Some(parent)=config.database.parent() {
-            if !parent.as_os_str().is_empty() { private_directory(parent)?; }
+        if let Some(parent) = config.database.parent() {
+            if !parent.as_os_str().is_empty() {
+                private_directory(parent)?;
+            }
         }
         if !config.database.exists() {
-            private_file(&config.database,b"")?;
+            private_file(&config.database, b"")?;
         }
-        let connection=Connection::open(&config.database)?;
+        let connection = Connection::open(&config.database)?;
         connection.busy_timeout(Duration::from_secs(5))?;
-        connection.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;")?;
-        let transaction_time=Arc::new(AtomicI64::new(clock.now()));
-        let sql_time=transaction_time.clone();
-        connection.create_scalar_function("hg_now",0,FunctionFlags::SQLITE_UTF8,
-            move |_| Ok(sql_time.load(Ordering::SeqCst)))?;
-        let version: i64=connection.query_row("PRAGMA user_version",[],|r| r.get(0))?;
-        if version==0 {
+        connection.execute_batch(
+            "PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;",
+        )?;
+        let transaction_time = Arc::new(AtomicI64::new(clock.now()));
+        let sql_time = transaction_time.clone();
+        connection.create_scalar_function("hg_now", 0, FunctionFlags::SQLITE_UTF8, move |_| {
+            Ok(sql_time.load(Ordering::SeqCst))
+        })?;
+        let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        if version == 0 {
             let tables: i64=connection.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",[],|r| r.get(0))?;
-            if tables!=0 { return Err(Error::new(400,"invalid_database","Refusing to replace an existing, unrecognized database.")); }
+            if tables != 0 {
+                return Err(Error::new(
+                    400,
+                    "invalid_database",
+                    "Refusing to replace an existing, unrecognized database.",
+                ));
+            }
             connection.execute_batch(include_str!("../migrations/0001.sql"))?;
-        } else if version!=1 {
-            return Err(Error::new(400,"invalid_database","This database version is not supported."));
+        } else if version != 1 {
+            return Err(Error::new(
+                400,
+                "invalid_database",
+                "This database version is not supported.",
+            ));
         }
-        let mut store=Self { connection, clock, transaction_time };
+        let mut store = Self {
+            connection,
+            clock,
+            transaction_time,
+        };
         store.atomic(|db,_| {
             db.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('privacy_key',?1)",params![crypto::random_token()])?;
             let initialized: bool=db.query_row("SELECT EXISTS(SELECT 1 FROM settings WHERE key='bootstrap_complete')",[],|r| r.get(0))?;
@@ -73,31 +102,53 @@ impl Store {
         Ok(store)
     }
 
-    pub fn now(&self) -> i64 { self.clock.now() }
+    pub fn now(&self) -> i64 {
+        self.clock.now()
+    }
 
     /// Trusted server integration boundary; not available over HTTP.
     /// The same lock covers authority checks and the protected database operation.
-    pub fn atomic<T>(&mut self, operation: impl FnOnce(&Connection,i64)->Result<T>) -> Result<T> {
-        let transaction=self.connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let now=self.clock.now();
-        self.transaction_time.store(now,Ordering::SeqCst);
+    pub fn atomic<T>(
+        &mut self,
+        operation: impl FnOnce(&Connection, i64) -> Result<T>,
+    ) -> Result<T> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let now = self.clock.now();
+        self.transaction_time.store(now, Ordering::SeqCst);
         transaction.execute_batch(include_str!("sql/expire.sql"))?;
-        let result=operation(&transaction,now)?;
+        let result = operation(&transaction, now)?;
         transaction.commit()?;
         Ok(result)
     }
 
     pub fn reserve_nonce(&mut self, proof: &crypto::Proof) -> Result<()> {
-        self.atomic(|db,now| {
-            if proof.expires_at<=now { return Err(crypto::bad_signature()); }
-            let rows=db.execute("INSERT OR IGNORE INTO nonces(key_id,nonce,expires_at) VALUES(?1,?2,?3)",
-                params![proof.actor_id,proof.nonce,proof.expires_at])?;
-            if rows!=1 { return Err(Error::new(401,"signature_replay","This signed request has already been used.")); }
+        self.atomic(|db, now| {
+            if proof.expires_at <= now {
+                return Err(crypto::bad_signature());
+            }
+            let rows = db.execute(
+                "INSERT OR IGNORE INTO nonces(key_id,nonce,expires_at) VALUES(?1,?2,?3)",
+                params![proof.actor_id, proof.nonce, proof.expires_at],
+            )?;
+            if rows != 1 {
+                return Err(Error::new(
+                    401,
+                    "signature_replay",
+                    "This signed request has already been used.",
+                ));
+            }
             Ok(())
         })
     }
 
-    pub fn remove_entitlement(&mut self, account: &str, action: &str, resource: &str) -> Result<()> {
+    pub fn remove_entitlement(
+        &mut self,
+        account: &str,
+        action: &str,
+        resource: &str,
+    ) -> Result<()> {
         self.atomic(|db,now| {
             db.execute("DELETE FROM entitlements WHERE account_id=?1 AND target_service='notes' AND action=?2 AND resource=?3",
                 params![account,action,resource])?;
@@ -118,22 +169,30 @@ impl Store {
 }
 
 pub fn private_directory(path: &std::path::Path) -> Result<()> {
-    if path.exists() { return Ok(()); }
-    let mut builder=std::fs::DirBuilder::new();
+    if path.exists() {
+        return Ok(());
+    }
+    let mut builder = std::fs::DirBuilder::new();
     builder.recursive(true);
     #[cfg(unix)]
-    { use std::os::unix::fs::DirBuilderExt; builder.mode(0o700); }
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
     builder.create(path)?;
     Ok(())
 }
 
 pub fn private_file(path: &std::path::Path, bytes: &[u8]) -> Result<()> {
     use std::io::Write;
-    let mut options=std::fs::OpenOptions::new();
+    let mut options = std::fs::OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
-    { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
-    let mut file=options.open(path)?;
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
     file.write_all(bytes)?;
     file.sync_all()?;
     Ok(())
@@ -141,11 +200,21 @@ pub fn private_file(path: &std::path::Path, bytes: &[u8]) -> Result<()> {
 
 #[derive(Clone)]
 pub struct RequestRecord {
-    pub id: String, pub actor_id: String, pub client_id: String, pub target_service: String,
-    pub purpose: String, pub permissions: Vec<Permission>, pub expected_human_id: Option<String>,
-    pub human_link: String, pub phase: String, pub created_at: i64, pub status_updated_at: i64,
-    pub expires_at: i64, pub requested_grant_expires_at: i64,
-    pub next_poll_at: i64, pub poll_interval: i64,
+    pub id: String,
+    pub actor_id: String,
+    pub client_id: String,
+    pub target_service: String,
+    pub purpose: String,
+    pub permissions: Vec<Permission>,
+    pub expected_human_id: Option<String>,
+    pub human_link: String,
+    pub phase: String,
+    pub created_at: i64,
+    pub status_updated_at: i64,
+    pub expires_at: i64,
+    pub requested_grant_expires_at: i64,
+    pub next_poll_at: i64,
+    pub poll_interval: i64,
 }
 
 pub fn request_record(db: &Connection, id: &str) -> Result<RequestRecord> {
@@ -159,60 +228,103 @@ pub fn request_record(db: &Connection, id: &str) -> Result<RequestRecord> {
                 requested_grant_expires_at:r.get(12)?,next_poll_at:r.get(13)?,poll_interval:r.get(14)?,
             },r.get::<_,String>(5)?))
         }).optional()?.ok_or_else(Error::not_found)?;
-    let (mut request,permissions)=data;
-    request.permissions=serde_json::from_str(&permissions)?;
+    let (mut request, permissions) = data;
+    request.permissions = serde_json::from_str(&permissions)?;
     Ok(request)
 }
 
 pub fn request_by_link(db: &Connection, link: &str) -> Result<RequestRecord> {
-    let id=db.query_row("SELECT id FROM requests WHERE human_link=?1",params![link],|r| r.get::<_,String>(0))
-        .optional()?.ok_or_else(Error::not_found)?;
-    request_record(db,&id)
+    let id = db
+        .query_row(
+            "SELECT id FROM requests WHERE human_link=?1",
+            params![link],
+            |r| r.get::<_, String>(0),
+        )
+        .optional()?
+        .ok_or_else(Error::not_found)?;
+    request_record(db, &id)
 }
 
 pub fn own_request(db: &Connection, id: &str, actor: &str) -> Result<RequestRecord> {
-    let request=request_record(db,id)?;
-    if request.actor_id!=actor { return Err(Error::not_found()); }
+    let request = request_record(db, id)?;
+    if request.actor_id != actor {
+        return Err(Error::not_found());
+    }
     Ok(request)
 }
 
 pub fn require_open(request: &RequestRecord, now: i64) -> Result<()> {
-    if request.expires_at<=now || request.phase=="expired" {
-        return Err(Error::new(410,"expired","This authorization request has expired."));
+    if request.expires_at <= now || request.phase == "expired" {
+        return Err(Error::new(
+            410,
+            "expired",
+            "This authorization request has expired.",
+        ));
     }
-    if ["succeeded","rejected","cancelled"].contains(&request.phase.as_str()) { return Err(Error::state()); }
+    if ["succeeded", "rejected", "cancelled"].contains(&request.phase.as_str()) {
+        return Err(Error::state());
+    }
     Ok(())
 }
 
-pub fn state_object(db: &Connection, config: &Config, request: &RequestRecord, now: i64) -> Result<State> {
-    let (status,status_text)=display_state(&request.phase)?;
-    let human_url=format!("{}/human/{}",config.public_origin,request.human_link);
-    let last_mail: Option<i64>=db.query_row("SELECT max(requested_at) FROM mail_operations WHERE request_id=?1",params![request.id],|r| r.get(0))?;
+pub fn state_object(
+    db: &Connection,
+    config: &Config,
+    request: &RequestRecord,
+    now: i64,
+) -> Result<State> {
+    let (status, status_text) = display_state(&request.phase)?;
+    let human_url = format!("{}/human/{}", config.public_origin, request.human_link);
+    let last_mail: Option<i64> = db.query_row(
+        "SELECT max(requested_at) FROM mail_operations WHERE request_id=?1",
+        params![request.id],
+        |r| r.get(0),
+    )?;
     let grant=db.query_row("SELECT g.id,g.expires_at,g.revoked_at,EXISTS(SELECT 1 FROM sessions s WHERE s.grant_id=g.id),
         (SELECT enabled FROM accounts WHERE id=g.human_id) FROM grants g WHERE g.request_id=?1",
         params![request.id],|r| Ok((r.get::<_,String>(0)?,r.get::<_,i64>(1)?,r.get::<_,Option<i64>>(2)?,r.get::<_,bool>(3)?,r.get::<_,bool>(4)?))).optional()?;
-    let (grant_id,grant_status,grant_expires_at)=match grant {
-        None=>(None,"none".into(),None),
-        Some((id,expires,revoked,issued,enabled))=> {
-            let mut statement=db.prepare("SELECT value FROM json_each((SELECT permissions FROM grants WHERE id=?1))")?;
-            let permissions=statement.query_map(params![id],|row|row.get::<_,String>(0))?;
-            let (mut original,mut effective)=(0,0);
-            let human: String=db.query_row("SELECT human_id FROM grants WHERE id=?1",params![id],|row|row.get(0))?;
+    let (grant_id, grant_status, grant_expires_at) = match grant {
+        None => (None, "none".into(), None),
+        Some((id, expires, revoked, issued, enabled)) => {
+            let mut statement = db.prepare(
+                "SELECT value FROM json_each((SELECT permissions FROM grants WHERE id=?1))",
+            )?;
+            let permissions = statement.query_map(params![id], |row| row.get::<_, String>(0))?;
+            let (mut original, mut effective) = (0, 0);
+            let human: String = db.query_row(
+                "SELECT human_id FROM grants WHERE id=?1",
+                params![id],
+                |row| row.get(0),
+            )?;
             for permission in permissions {
-                original+=1;
-                let permission: Permission=serde_json::from_str(&permission?)?;
-                if crate::requests::human_permission(db,&human,&permission)? { effective+=1; }
+                original += 1;
+                let permission: Permission = serde_json::from_str(&permission?)?;
+                if crate::requests::human_permission(db, &human, &permission)? {
+                    effective += 1;
+                }
             }
-            let status=if revoked.is_some() {"revoked"} else if expires<=now {"expired"}
-                else if !enabled {"account_disabled"}
-                else if !issued && request.phase=="expired" {"unclaimed_expired"}
-                else if effective==0 {"permissions_removed"}
-                else if effective<original {"restricted"}
-                else if issued {"active"} else {"pending_claim"};
-            (Some(id),status.into(),Some(expires))
+            let status = if revoked.is_some() {
+                "revoked"
+            } else if expires <= now {
+                "expired"
+            } else if !enabled {
+                "account_disabled"
+            } else if !issued && request.phase == "expired" {
+                "unclaimed_expired"
+            } else if effective == 0 {
+                "permissions_removed"
+            } else if effective < original {
+                "restricted"
+            } else if issued {
+                "active"
+            } else {
+                "pending_claim"
+            };
+            (Some(id), status.into(), Some(expires))
         }
     };
-    let terminal=["succeeded","rejected","cancelled","expired"].contains(&request.phase.as_str());
+    let terminal =
+        ["succeeded", "rejected", "cancelled", "expired"].contains(&request.phase.as_str());
     Ok(State {
         protocol_version:PROTOCOL.into(),request_id:request.id.clone(),status,status_text,
         phase:request.phase.clone(),created_at:request.created_at,status_updated_at:request.status_updated_at,
@@ -226,27 +338,47 @@ pub fn state_object(db: &Connection, config: &Config, request: &RequestRecord, n
     })
 }
 
-pub fn check_rate(db: &Connection, buckets: &[(String,i64)], now: i64) -> Result<()> {
-    for (bucket,limit) in buckets {
-        let count: i64=db.query_row("SELECT count(*) FROM rate_events WHERE bucket=?1 AND occurred_at>?2",params![bucket,now-3600],|r| r.get(0))?;
-        if count>=*limit {
-            let mut error=Error::new(429,"rate_limited","The service cannot accept this operation yet.");
-            error.retry_after_seconds=60;
+pub fn check_rate(db: &Connection, buckets: &[(String, i64)], now: i64) -> Result<()> {
+    for (bucket, limit) in buckets {
+        let count: i64 = db.query_row(
+            "SELECT count(*) FROM rate_events WHERE bucket=?1 AND occurred_at>?2",
+            params![bucket, now - 3600],
+            |r| r.get(0),
+        )?;
+        if count >= *limit {
+            let mut error = Error::new(
+                429,
+                "rate_limited",
+                "The service cannot accept this operation yet.",
+            );
+            error.retry_after_seconds = 60;
             return Err(error);
         }
     }
-    for (bucket,_) in buckets {
-        db.execute("INSERT INTO rate_events(bucket,occurred_at) VALUES(?1,?2)",params![bucket,now])?;
+    for (bucket, _) in buckets {
+        db.execute(
+            "INSERT INTO rate_events(bucket,occurred_at) VALUES(?1,?2)",
+            params![bucket, now],
+        )?;
     }
     Ok(())
 }
 
 pub fn registered_human(db: &Connection, actor: &str) -> Result<String> {
-    db.query_row("SELECT id FROM accounts WHERE key_id=?1 AND enabled=1",params![actor],|r| r.get::<_,String>(0))
-        .optional()?.ok_or_else(Error::forbidden)
+    db.query_row(
+        "SELECT id FROM accounts WHERE key_id=?1 AND enabled=1",
+        params![actor],
+        |r| r.get::<_, String>(0),
+    )
+    .optional()?
+    .ok_or_else(Error::forbidden)
 }
 
 pub fn privacy_hash(db: &Connection, text: &str) -> Result<String> {
-    let key: String=db.query_row("SELECT value FROM settings WHERE key='privacy_key'",[],|r| r.get(0))?;
-    crypto::private_hash(key.as_bytes(),text)
+    let key: String = db.query_row(
+        "SELECT value FROM settings WHERE key='privacy_key'",
+        [],
+        |r| r.get(0),
+    )?;
+    crypto::private_hash(key.as_bytes(), text)
 }

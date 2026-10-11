@@ -8,7 +8,7 @@
 [协议](spec/v0.1.md) · [公开接口](openapi.yaml) · [可执行示例](examples/README.md) · [验证记录](docs/verification.md) · [安全边界](SECURITY.md)
 
 > 本地首版源码交付。SQL、客户端和文档检查与 Rust 服务验证分开记录。
-> 当前交付环境没有 Rust 工具链：Rust 编译、格式、静态检查和完整 HTTP 流程尚未执行。
+> 原始本地交付环境没有 Rust 工具链：Rust 编译、格式、静态检查和完整 HTTP 流程需在具备工具链的环境验证。
 > 不应将本草案直接用于生产。没有构建、覆盖率、发布或第三方兼容性徽章。
 
 ## 让 AI 为你的项目接入 HumanGrant
@@ -16,7 +16,7 @@
 复制下面**一个完整代码块**，粘贴给目标项目中的开发 AI。提示词可独立使用，不依赖本页其他内容。
 源文件是 [prompts/integrate.md](prompts/integrate.md)；同步检查会阻止两份内容出现差异。
 GitHub 的代码块复制控件由 GitHub 提供，本页不运行 JavaScript。其他阅读器可完整选中代码块。
-本次未推送，所以**尚未在目标 GitHub 页面实测复制按钮**；本地已检查代码块完整性与源文件一致性。
+该 README 已发布到 GitHub。代码块完整性和提示词同步已通过自动检查；GitHub 页面上的复制按钮尚未人工操作验证。
 
 <!-- BEGIN HUMANGRANT INTEGRATION PROMPT -->
 
@@ -322,7 +322,7 @@ cargo build
 python scripts/e2e.py --binary target/debug/humangrant
 ```
 
-[CI](.github/workflows/ci.yml) 定义以上检查和 JavaScript 语法检查。工作流文件存在不代表远程 CI 已运行。
+[CI](.github/workflows/ci.yml) 定义以上检查和 JavaScript 语法检查。实时运行结果以 [GitHub Actions](https://github.com/LIghtJUNction/humangrant/actions) 为准。
 当前未生成 `Cargo.lock`；需要可用的 Cargo 和包源生成并审查锁文件后再作可复现构建承诺。
 结果、环境限制及测试分层见 [docs/verification.md](docs/verification.md)。维护规则只保存在 [AGENTS.md](AGENTS.md)。
 

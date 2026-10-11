@@ -19,50 +19,97 @@ pub struct Browser {
 }
 
 pub fn browser(db: &Connection, cookie: &str) -> Result<Browser> {
-    let mut matching=cookie.split(';').map(str::trim).filter_map(|piece|piece.strip_prefix("hg_browser="));
-    let token=matching.next().ok_or_else(Error::forbidden)?;
-    if matching.next().is_some() || token.len()!=43 { return Err(Error::forbidden()); }
-    let token_hash=crypto::hash(token.as_bytes());
-    db.query_row("SELECT token_hash,request_id,csrf,human_id,challenge,challenge_expires_at,challenge_used
-        FROM browser_sessions WHERE token_hash=?1 AND expires_at>hg_now()",params![token_hash],|r| Ok(Browser {
-            token_hash:r.get(0)?,request_id:r.get(1)?,csrf:r.get(2)?,human_id:r.get(3)?,challenge:r.get(4)?,
-            challenge_expires_at:r.get(5)?,challenge_used:r.get(6)?,
-        })).optional()?.ok_or_else(Error::forbidden)
+    let mut matching = cookie
+        .split(';')
+        .map(str::trim)
+        .filter_map(|piece| piece.strip_prefix("hg_browser="));
+    let token = matching.next().ok_or_else(Error::forbidden)?;
+    if matching.next().is_some() || token.len() != 43 {
+        return Err(Error::forbidden());
+    }
+    let token_hash = crypto::hash(token.as_bytes());
+    db.query_row(
+        "SELECT token_hash,request_id,csrf,human_id,challenge,challenge_expires_at,challenge_used
+        FROM browser_sessions WHERE token_hash=?1 AND expires_at>hg_now()",
+        params![token_hash],
+        |r| {
+            Ok(Browser {
+                token_hash: r.get(0)?,
+                request_id: r.get(1)?,
+                csrf: r.get(2)?,
+                human_id: r.get(3)?,
+                challenge: r.get(4)?,
+                challenge_expires_at: r.get(5)?,
+                challenge_used: r.get(6)?,
+            })
+        },
+    )
+    .optional()?
+    .ok_or_else(Error::forbidden)
 }
 
-fn make_browser(db: &Connection, request_id: Option<&str>, human: Option<&str>, now: i64) -> Result<(String,String)> {
-    let token=crypto::random_token();
-    let csrf=crypto::random_token();
+fn make_browser(
+    db: &Connection,
+    request_id: Option<&str>,
+    human: Option<&str>,
+    now: i64,
+) -> Result<(String, String)> {
+    let token = crypto::random_token();
+    let csrf = crypto::random_token();
     db.execute("INSERT INTO browser_sessions(token_hash,request_id,csrf,human_id,expires_at) VALUES(?1,?2,?3,?4,?5)",
         params![crypto::hash(token.as_bytes()),request_id,csrf,human,now+1800])?;
-    Ok((token,csrf))
+    Ok((token, csrf))
 }
 
 pub fn cookie(config: &Config, token: &str) -> String {
-    format!("hg_browser={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=1800{}",
-        if config.public_origin.starts_with("https://") {"; Secure"} else {""})
+    format!(
+        "hg_browser={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=1800{}",
+        if config.public_origin.starts_with("https://") {
+            "; Secure"
+        } else {
+            ""
+        }
+    )
 }
 
 pub fn csrf_check(session: &Browser, origin: &str, csrf: &str, config: &Config) -> Result<()> {
-    if origin!=config.public_origin || csrf!=session.csrf {
-        return Err(Error::new(403,"csrf_failed","A same-origin browser confirmation is required."));
+    if origin != config.public_origin || csrf != session.csrf {
+        return Err(Error::new(
+            403,
+            "csrf_failed",
+            "A same-origin browser confirmation is required.",
+        ));
     }
     Ok(())
 }
 
 pub fn authenticated_account(db: &Connection, session: &Browser) -> Result<String> {
-    let human=session.human_id.as_ref().ok_or_else(Error::forbidden)?;
-    let enabled: bool=db.query_row("SELECT EXISTS(SELECT 1 FROM accounts WHERE id=?1 AND enabled=1)",params![human],|r| r.get(0))?;
-    if !enabled { return Err(Error::forbidden()); }
+    let human = session.human_id.as_ref().ok_or_else(Error::forbidden)?;
+    let enabled: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM accounts WHERE id=?1 AND enabled=1)",
+        params![human],
+        |r| r.get(0),
+    )?;
+    if !enabled {
+        return Err(Error::forbidden());
+    }
     Ok(human.clone())
 }
 
 fn same_request(session: &Browser, request: &RequestRecord) -> Result<()> {
-    if session.request_id.as_deref()!=Some(request.id.as_str()) { return Err(Error::forbidden()); }
+    if session.request_id.as_deref() != Some(request.id.as_str()) {
+        return Err(Error::forbidden());
+    }
     Ok(())
 }
 
-pub fn page(store: &mut Store, config: &Config, link: &str, supplied_cookie: &str, source: &str) -> Result<(Value,Option<String>)> {
+pub fn page(
+    store: &mut Store,
+    config: &Config,
+    link: &str,
+    supplied_cookie: &str,
+    source: &str,
+) -> Result<(Value, Option<String>)> {
     store.atomic(|db,now| {
         let request=db::request_by_link(db,link)?;
         let old=browser(db,supplied_cookie).ok().filter(|session|session.request_id.as_deref()==Some(request.id.as_str()));
@@ -91,7 +138,15 @@ pub fn page(store: &mut Store, config: &Config, link: &str, supplied_cookie: &st
     })
 }
 
-pub fn begin(store: &mut Store, config: &Config, link: &str, cookie: &str, origin: &str, csrf: &str, source: &str) -> Result<Value> {
+pub fn begin(
+    store: &mut Store,
+    config: &Config,
+    link: &str,
+    cookie: &str,
+    origin: &str,
+    csrf: &str,
+    source: &str,
+) -> Result<Value> {
     store.atomic(|db,now| {
         let request=db::request_by_link(db,link)?;
         db::require_open(&request,now)?;
@@ -114,12 +169,19 @@ pub fn begin(store: &mut Store, config: &Config, link: &str, cookie: &str, origi
 }
 
 pub struct BrowserWrite<'a> {
-    pub link: &'a str, pub cookie: &'a str, pub origin: &'a str, pub csrf: &'a str,
+    pub link: &'a str,
+    pub cookie: &'a str,
+    pub origin: &'a str,
+    pub csrf: &'a str,
 }
 
-pub fn verify(store: &mut Store, config: &Config, authenticator: &dyn HumanAuthenticator,
-    browser_write: &BrowserWrite<'_>, input: &Verification) -> Result<(Value,String)>
-{
+pub fn verify(
+    store: &mut Store,
+    config: &Config,
+    authenticator: &dyn HumanAuthenticator,
+    browser_write: &BrowserWrite<'_>,
+    input: &Verification,
+) -> Result<(Value, String)> {
     store.atomic(|db,now| {
         let request=db::request_by_link(db,browser_write.link)?;
         db::require_open(&request,now)?;
@@ -145,45 +207,79 @@ pub fn verify(store: &mut Store, config: &Config, authenticator: &dyn HumanAuthe
     })
 }
 
-pub fn decide(store: &mut Store, config: &Config, browser_write: &BrowserWrite<'_>, approval: Option<&Approval>) -> Result<Value> {
-    store.atomic(|db,now| {
-        let request=db::request_by_link(db,browser_write.link)?;
-        db::require_open(&request,now)?;
-        let session=browser(db,browser_write.cookie)?;
-        same_request(&session,&request)?;
-        csrf_check(&session,browser_write.origin,browser_write.csrf,config)?;
-        let human=authenticated_account(db,&session)?;
-        if request.expected_human_id.as_deref().is_some_and(|id|id!=human) {
-            return Err(Error::new(403,"expected_human_mismatch","This request requires a different account."));
+pub fn decide(
+    store: &mut Store,
+    config: &Config,
+    browser_write: &BrowserWrite<'_>,
+    approval: Option<&Approval>,
+) -> Result<Value> {
+    store.atomic(|db, now| {
+        let request = db::request_by_link(db, browser_write.link)?;
+        db::require_open(&request, now)?;
+        let session = browser(db, browser_write.cookie)?;
+        same_request(&session, &request)?;
+        csrf_check(&session, browser_write.origin, browser_write.csrf, config)?;
+        let human = authenticated_account(db, &session)?;
+        if request
+            .expected_human_id
+            .as_deref()
+            .is_some_and(|id| id != human)
+        {
+            return Err(Error::new(
+                403,
+                "expected_human_mismatch",
+                "This request requires a different account.",
+            ));
         }
-        if let Some(approval)=approval { requests::approve(db,&request.id,&human,approval,now) }
-        else {
-            if request.phase!="awaiting_consent" { return Err(Error::state()); }
-            db.execute("UPDATE requests SET phase='rejected',status_updated_at=hg_now() WHERE id=?1",params![request.id])?;
+        if let Some(approval) = approval {
+            requests::approve(db, &request.id, &human, approval, now)
+        } else {
+            if request.phase != "awaiting_consent" {
+                return Err(Error::state());
+            }
+            db.execute(
+                "UPDATE requests SET phase='rejected',status_updated_at=hg_now() WHERE id=?1",
+                params![request.id],
+            )?;
             Ok(json!({"status":"rejected"}))
         }
     })
 }
 
 pub fn grants_page(store: &mut Store, config: &Config, cookie: &str) -> Result<Value> {
-    store.atomic(|db,_| {
-        let session=browser(db,cookie)?;
-        let human=authenticated_account(db,&session)?;
-        Ok(json!({"view":"grants","origin":config.public_origin,"csrf":session.csrf,
-            "human_id":human,"grants":requests::list_grants(db,&human)?["grants"]}))
+    store.atomic(|db, _| {
+        let session = browser(db, cookie)?;
+        let human = authenticated_account(db, &session)?;
+        Ok(
+            json!({"view":"grants","origin":config.public_origin,"csrf":session.csrf,
+            "human_id":human,"grants":requests::list_grants(db,&human)?["grants"]}),
+        )
     })
 }
 
-pub fn revoke(store: &mut Store, config: &Config, id: &str, cookie: &str, origin: &str, csrf: &str) -> Result<Value> {
-    store.atomic(|db,_| {
-        let session=browser(db,cookie)?;
-        csrf_check(&session,origin,csrf,config)?;
-        let human=authenticated_account(db,&session)?;
-        requests::revoke(db,id,&human)
+pub fn revoke(
+    store: &mut Store,
+    config: &Config,
+    id: &str,
+    cookie: &str,
+    origin: &str,
+    csrf: &str,
+) -> Result<Value> {
+    store.atomic(|db, _| {
+        let session = browser(db, cookie)?;
+        csrf_check(&session, origin, csrf, config)?;
+        let human = authenticated_account(db, &session)?;
+        requests::revoke(db, id, &human)
     })
 }
 
-pub fn invite_page(store: &mut Store, config: &Config, token: &str, supplied_cookie: &str, source: &str) -> Result<(Value,Option<String>)> {
+pub fn invite_page(
+    store: &mut Store,
+    config: &Config,
+    token: &str,
+    supplied_cookie: &str,
+    source: &str,
+) -> Result<(Value, Option<String>)> {
     store.atomic(|db,now| {
         let request_id=db.query_row("SELECT request_id FROM mail_operations WHERE action_token=?1",params![token],|r| r.get::<_,String>(0))
             .optional()?.ok_or_else(Error::not_found)?;
@@ -201,7 +297,15 @@ pub fn invite_page(store: &mut Store, config: &Config, token: &str, supplied_coo
     })
 }
 
-pub fn refuse_mail(store: &mut Store, config: &Config, token: &str, cookie: &str, origin: &str, csrf: &str, block: bool) -> Result<Value> {
+pub fn refuse_mail(
+    store: &mut Store,
+    config: &Config,
+    token: &str,
+    cookie: &str,
+    origin: &str,
+    csrf: &str,
+    block: bool,
+) -> Result<Value> {
     store.atomic(|db,_| {
         let (request,recipient)=db.query_row("SELECT request_id,recipient_hash FROM mail_operations WHERE action_token=?1",
             params![token],|r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?.ok_or_else(Error::not_found)?;
