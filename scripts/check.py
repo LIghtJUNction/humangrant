@@ -67,7 +67,7 @@ def check(root: Path = ROOT) -> dict[str,int]:
         count += 1
         for token in markdown.parse(text):
             if token.type in {'html_block','html_inline'}:
-                for link in re.findall(r'(?:src|href)="([^"]+)"',token.content):
+                for link in re.findall(r'(?:src|href|srcset)="([^"]+)"',token.content):
                     local_reference(path,link,root)
             for child in token.children or []:
                 if child.type=='link_open':
@@ -75,7 +75,7 @@ def check(root: Path = ROOT) -> dict[str,int]:
                 elif child.type=='image':
                     local_reference(path,child.attrGet('src'),root)
                 elif child.type=='html_inline':
-                    for link in re.findall(r'(?:src|href)="([^"]+)"',child.content):
+                    for link in re.findall(r'(?:src|href|srcset)="([^"]+)"',child.content):
                         local_reference(path,link,root)
     for name in ('humangrant-integrate','humangrant-use'):
         path = root/'skills'/name/'SKILL.md'
@@ -117,10 +117,26 @@ def check(root: Path = ROOT) -> dict[str,int]:
         texts = [node.text for node in asset.iter() if node.tag.endswith('}text')]
         require('Continue with human beings' in texts,f'{name}: fixed visible button label is missing')
         require(asset.attrib.get('viewBox')=='0 0 368 64',f'{name}: unexpected dimensions')
-    readme=(root/'README.md').read_text()
-    require('让 AI 为你的项目接入 HumanGrant' in readme[:2500],'Integration heading must be at the top')
-    require('assets/continue-with-human-beings.svg' in readme[:2500],'README must show the button')
-    require(not re.search(r'shields\.io|codecov\.io|badge\.svg',readme),'Unverified badge is not allowed')
+    for filename, heading, alternate in (
+        ('README.md', 'Add to your project', 'README.zh-CN.md'),
+        ('README.zh-CN.md', '让 AI 为你的项目接入 HumanGrant', 'README.md'),
+    ):
+        readme = (root/filename).read_text(encoding='utf-8')
+        require(heading in readme[:4000],f'{filename}: integration heading must be at the top')
+        require('assets/continue-with-human-beings.svg' in readme[:4000],f'{filename}: show the button')
+        require(f'href="{alternate}"' in readme[:1000],f'{filename}: language switch missing')
+        for name in ('protocol','rust','sqlite','openapi','skills','license'):
+            require(f'assets/badges/{name}.svg' in readme,f'{filename}: missing {name} badge')
+        for image in re.findall(r'<img[^>]+src="(https://[^\"]+)"',readme):
+            require(image=='https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml/badge.svg?branch=main',
+                    f'{filename}: external badges must use the actual CI workflow')
+    for path in (root/'assets').rglob('*.svg'):
+        asset = ET.fromstring(path.read_text(encoding='utf-8'))
+        require(asset.attrib.get('viewBox'),f'{path.name}: SVG viewBox missing')
+        require(any(node.tag.endswith('}title') and node.text for node in asset.iter()),f'{path.name}: SVG title missing')
+        for node in asset.iter():
+            require(node.tag.rsplit('}',1)[-1] not in {'script','foreignObject'},f'{path.name}: active SVG content')
+            require(not any(key.lower().startswith('on') for key in node.attrib),f'{path.name}: SVG event handler')
     require((root/'AGENTS.md').is_file(),'AGENTS.md required')
     for path in root.rglob('*.rs'):
         if 'target' in path.parts:

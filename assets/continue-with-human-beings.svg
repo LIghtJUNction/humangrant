@@ -1,8 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="368" height="64" viewBox="0 0 368 64" role="img" aria-labelledby="title desc">
-<title id="title">Continue with human beings</title><desc id="desc">HumanGrant sign-in button. A person grants access; the agent acts as itself.</desc>
-<rect x=".75" y=".75" width="366.5" height="62.5" rx="15.25" fill="#ffffff" stroke="#c5cdc8" stroke-width="1.5"/>
-<rect x="17" y="16" width="32" height="32" rx="9" fill="#132724"/>
-<path d="M27 25v14m12-14v14M27 32h12" stroke="#e8f3ed" stroke-width="3" stroke-linecap="round"/>
-<circle cx="33" cy="32" r="3" fill="#a4d9bd" stroke="#132724" stroke-width="1.5"/>
-<text x="65" y="39" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600" fill="#172622">Continue with human beings</text>
+  <title id="title">Continue with human beings</title>
+  <desc id="desc">HumanGrant sign-in button.</desc>
+  <rect x=".75" y=".75" width="366.5" height="62.5" rx="15.25" fill="#ffffff" stroke="#cfd6e0" stroke-width="1.5"/>
+  <rect x="16" y="16" width="32" height="32" rx="10" fill="#141a24"/>
+  <path d="M29 32h6" stroke="#82b1ff" stroke-width="1.8"/>
+  <circle cx="25" cy="32" r="4" fill="#82b1ff"/>
+  <circle cx="39" cy="32" r="4" fill="none" stroke="#eef2fb" stroke-width="1.8" stroke-dasharray="2.5 2"/>
+  <text x="62" y="39" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600" fill="#172033">Continue with human beings</text>
 </svg>

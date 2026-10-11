@@ -11,7 +11,8 @@ This file is the single source for repository maintenance rules.
 - Do not log headers, cookies, tokens, full email addresses, or authorization-link paths.
 - Tests use temporary databases, a controlled clock, and a local mail spool. Never send real test mail.
 - Skills: `skills/humangrant-integrate/SKILL.md` and `skills/humangrant-use/SKILL.md`.
-- Integration prompt source: `prompts/integrate.md`. Run `python scripts/sync_prompt.py` after editing.
+- One-line prompt sources: `prompts/integrate.md` and `prompts/integrate.zh-CN.md`.
+  Run `python scripts/sync_prompt.py` to update both READMEs; keep the skill link in each prompt.
 - Checks: `python scripts/check.py`; `python -m pytest -q`; `cargo fmt --check`;
   `cargo clippy --all-targets -- -D warnings`; `cargo test`; `cargo build`.
 - Full public-HTTP test: `python scripts/e2e.py --binary target/debug/humangrant`.

@@ -1,20 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="260" viewBox="0 0 1120 260" role="img" aria-labelledby="title desc">
-<title id="title">HumanGrant — Human permission. Agent identity.</title>
-<desc id="desc">An open protocol for AI agents to sign in with human permission. Protocol 0.1 Draft.</desc>
-<defs><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0v32" fill="none" stroke="#b6dfc9" stroke-opacity=".055"/></pattern></defs>
-<rect width="1120" height="260" rx="22" fill="#101f1b"/><rect width="1120" height="260" rx="22" fill="url(#grid)"/>
-<text x="46" y="46" fill="#a5ccb8" font-family="Arial,Helvetica,sans-serif" font-size="12" letter-spacing="2.5">OPEN AUTHORIZATION · PROTOCOL 0.1 DRAFT</text>
-<text x="44" y="130" fill="#f0f6f2" font-family="Arial,Helvetica,sans-serif" font-size="68" font-weight="700" letter-spacing="-2.5">HumanGrant</text>
-<text x="48" y="172" fill="#c4d6cb" font-family="Arial,Helvetica,sans-serif" font-size="21">Human permission. Agent identity.</text>
-<text x="48" y="220" fill="#8da99a" font-family="Arial,Helvetica,sans-serif" font-size="14">An open protocol for AI agents to sign in with human permission.</text>
-<g transform="translate(738 62)">
-<rect width="114" height="114" rx="29" fill="#1b3128" stroke="#496d58"/>
-<circle cx="57" cy="43" r="12" fill="none" stroke="#d5eee0" stroke-width="3"/>
-<path d="M33 84c0-24 48-24 48 0" fill="none" stroke="#d5eee0" stroke-width="3" stroke-linecap="round"/>
-<path d="M130 57h37m-8-7 8 7-8 7" fill="none" stroke="#8dd4ad" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-<rect x="184" width="114" height="114" rx="29" fill="#1b3128" stroke="#496d58"/>
-<path d="m227 38-15 19 15 19m28-38 15 19-15 19" fill="none" stroke="#d5eee0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="241" cy="57" r="3" fill="#8dd4ad"/>
-<text x="57" y="143" fill="#9dbcaa" font-family="Arial,Helvetica,sans-serif" font-size="11" text-anchor="middle" letter-spacing="1.5">GRANTOR</text>
-<text x="241" y="143" fill="#9dbcaa" font-family="Arial,Helvetica,sans-serif" font-size="11" text-anchor="middle" letter-spacing="1.5">ACTOR</text>
-</g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="360" viewBox="0 0 1120 360" role="img" aria-labelledby="title desc">
+  <title id="title">HumanGrant</title>
+  <desc id="desc">A person connects to an AI agent. The person has a solid outline; the agent has a dashed outline.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1"><stop stop-color="#10141c"/><stop offset="1" stop-color="#181e2a"/></linearGradient>
+    <linearGradient id="connection"><stop stop-color="#8bb8ff"/><stop offset=".5" stop-color="#76dfbb"/><stop offset="1" stop-color="#bda7ff"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#477ae8" stop-opacity=".18"/><stop offset="1" stop-color="#477ae8" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#9eafcc" opacity=".14"/></pattern>
+    <clipPath id="frame"><rect width="1120" height="360" rx="24"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1120" height="360" fill="url(#background)"/>
+    <rect x="580" width="540" height="360" fill="url(#grid)"/>
+    <ellipse cx="862" cy="172" rx="320" ry="250" fill="url(#glow)"/>
+    <path d="M590 304h100q24 0 24-24V76q0-24 24-24h330" fill="none" stroke="#42516a" stroke-opacity=".35"/>
+    <path d="M660 328h328q24 0 24-24V40" fill="none" stroke="#42516a" stroke-opacity=".35"/>
+    <g font-family="Arial, Helvetica, sans-serif">
+      <g transform="translate(60 64)">
+        <circle cx="8" cy="8" r="7" fill="#82b1ff"/>
+        <circle cx="31" cy="8" r="7" fill="none" stroke="#e1e7f1" stroke-width="2" stroke-dasharray="3 3"/>
+        <path d="M15 8h9" stroke="#82b1ff" stroke-width="2"/>
+      </g>
+      <text x="58" y="194" fill="#f5f7fb" font-size="82" font-weight="700" letter-spacing="-4">HumanGrant</text>
+      <text x="62" y="238" fill="#aab7cd" font-size="20">Human permission. Agent identity.</text>
+      <path d="M62 286h44" stroke="#82b1ff" stroke-width="3" stroke-linecap="round"/>
+      <text x="120" y="291" fill="#c2ccdc" font-size="13" letter-spacing="1.5">PEOPLE + AI</text>
+      <path d="M788 170h112" stroke="#2c3950" stroke-width="10" stroke-linecap="round"/>
+      <path d="M788 170h112" stroke="url(#connection)" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="844" cy="170" r="16" fill="#182f2d" stroke="#76dfbb"/>
+      <path d="m837 170 5 5 9-10" fill="none" stroke="#a6f1d7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="666" y="106" width="122" height="128" rx="30" fill="#1c2739" stroke="#9bbcff" stroke-width="2"/>
+      <circle cx="727" cy="151" r="15" fill="none" stroke="#e6eeff" stroke-width="3"/>
+      <path d="M701 202v-4a26 26 0 0 1 52 0v4" fill="none" stroke="#e6eeff" stroke-width="3" stroke-linecap="round"/>
+      <rect x="900" y="106" width="122" height="128" rx="30" fill="#232539" stroke="#b7b0de" stroke-width="2" stroke-dasharray="7 7"/>
+      <rect x="933" y="145" width="56" height="46" rx="14" fill="none" stroke="#e8e4fc" stroke-width="2.5" stroke-dasharray="5 4"/>
+      <path d="M961 133v12m-28 17h-8m64 0h8" stroke="#e8e4fc" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="950" cy="165" r="3" fill="#c8b9ff"/><circle cx="972" cy="165" r="3" fill="#c8b9ff"/>
+      <path d="M951 178h20" stroke="#e8e4fc" stroke-width="2.5" stroke-linecap="round"/>
+      <text x="727" y="269" text-anchor="middle" fill="#d7e2f5" font-size="15">Human</text>
+      <text x="961" y="269" text-anchor="middle" fill="#d7e2f5" font-size="15">AI agent</text>
+    </g>
+  </g>
+</svg>

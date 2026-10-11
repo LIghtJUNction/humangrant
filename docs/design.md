@@ -1,7 +1,12 @@
 # Identity and example UI
 
-The wordmark and symbol are original vector source assets for this repository. The joined strokes
-represent an explicit connection, not a borrowed identity-provider mark or security certification.
+The wordmark pairs a solid human outline with a dashed AI outline. The compact symbol repeats
+that pairing as two connected circles. Both are local SVG source assets.
+
+`README.md` is English; `README.zh-CN.md` is Chinese. Both use the same wordmark and button assets.
+Six local SVG badges link to the protocol, Rust manifest, SQLite migration, OpenAPI, skills, and
+license. The CI badge reads the actual `main` workflow status from GitHub.
+One-line integration prompts are synchronized by `python scripts/sync_prompt.py`.
 
 Use [the light button](../assets/continue-with-human-beings.svg) or
 [the dark button](../assets/continue-with-human-beings-dark.svg). Keep the text exactly:

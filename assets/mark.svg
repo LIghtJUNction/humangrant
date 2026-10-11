@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" role="img" aria-labelledby="title">
-<title id="title">HumanGrant</title><rect width="40" height="40" rx="11" fill="#132724"/>
-<path d="M12 12v16m16-16v16M12 20h16" fill="none" stroke="#e8f3ed" stroke-width="4" stroke-linecap="round"/>
-<circle cx="20" cy="20" r="3.5" fill="#a4d9bd" stroke="#132724" stroke-width="2"/>
+  <title id="title">HumanGrant</title>
+  <rect width="40" height="40" rx="12" fill="#141a24"/>
+  <path d="M17 20h6" stroke="#82b1ff" stroke-width="2"/>
+  <circle cx="12" cy="20" r="5" fill="#82b1ff"/>
+  <circle cx="28" cy="20" r="5" fill="none" stroke="#eef2fb" stroke-width="2" stroke-dasharray="3 2"/>
 </svg>
