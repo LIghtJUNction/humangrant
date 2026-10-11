@@ -1,0 +1,20 @@
+{
+  "description": "PUBLIC TEST VECTOR ONLY. Never use this seed for a real identity.",
+  "seed_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  "method": "POST",
+  "origin": "https://auth.example.test",
+  "path": "/v1/requests",
+  "created_at": 1700000000,
+  "body_utf8": "{\"client_id\":\"example-cli\",\"target_service\":\"notes\",\"purpose\":\"Read a note\",\"requested_permissions\":[{\"action\":\"notes.read\",\"resource\":\"alice-note\"}],\"expected_human_id\":\"alice\"}",
+  "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+  "actor_id": "ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+  "headers": {
+    "Content-Type": "application/json",
+    "Content-Digest": "sha-256=:jN6odj5Tli9ZfoLdtLxtE/sUNtMKAKM2V7xq8/qri5Y=:",
+    "X-HG-Key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+    "Authorization": "HumanGrant anonymous",
+    "Signature-Input": "hg=(\"@method\" \"@target-uri\" \"content-digest\" \"content-type\" \"x-hg-key\" \"authorization\");created=1700000000;expires=1700000060;nonce=\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYX\";keyid=\"ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk\";alg=\"ed25519\";tag=\"humangrant-0.1\"",
+    "Signature": "hg=:jmjuzgV58zQY0A8N+T9sss24Jwa8Kah5bvs2VSdWA43TScypSfoPkzlERC6XLBOvx8+D+ZqQ0WOVKwS2/Gd3AA==:"
+  },
+  "signature_base_utf8": "\"@method\": POST\n\"@target-uri\": https://auth.example.test/v1/requests\n\"content-digest\": sha-256=:jN6odj5Tli9ZfoLdtLxtE/sUNtMKAKM2V7xq8/qri5Y=:\n\"content-type\": application/json\n\"x-hg-key\": 11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\n\"authorization\": HumanGrant anonymous\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-type\" \"x-hg-key\" \"authorization\");created=1700000000;expires=1700000060;nonce=\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYX\";keyid=\"ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk\";alg=\"ed25519\";tag=\"humangrant-0.1\""
+}

@@ -1,0 +1,30 @@
+[package]
+name = "humangrant"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "An open protocol for AI agents to sign in with human permission."
+license = "MIT"
+repository = "https://github.com/LIghtJUNction/humangrant"
+publish = false
+
+[dependencies]
+base64 = "0.22"
+ed25519-dalek = "2.2"
+hmac = "0.12"
+rand = "0.8"
+rusqlite = { version = "0.32", features = ["bundled", "functions"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tiny_http = "0.12"
+url = "2.5"
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[lints.rust]
+unsafe_code = "forbid"

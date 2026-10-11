@@ -1,0 +1,63 @@
+{
+  "protocol_version": "HumanGrant Protocol 0.1 Draft",
+  "source_origin": "https://github.com/LIghtJUNction/humangrant.git",
+  "source_state": "local uncommitted draft; not pushed",
+  "pytest": {
+    "passed": 166,
+    "failed": 0,
+    "skipped": 0,
+    "cases_by_module": {
+      "tests.test_browser_crypto": 1,
+      "tests.test_client": 60,
+      "tests.test_contracts": 12,
+      "tests.test_docs": 6,
+      "tests.test_smtp": 19,
+      "tests.test_sql": 68
+    }
+  },
+  "other_executed_checks": [
+    "python scripts/check.py",
+    "python scripts/sync_prompt.py --check",
+    "python -m py_compile clients/*.py examples/*.py scripts/*.py tests/*.py",
+    "node --check examples/web/ui.js",
+    "node --check examples/web/webcrypto.js",
+    "CairoSVG renders and visual inspection of wordmark and both buttons"
+  ],
+  "rust": {
+    "compiled": false,
+    "formatted": false,
+    "clippy_executed": false,
+    "tests_executed": false,
+    "test_functions_in_source": 17,
+    "cargo_lock_generated": false,
+    "blocker": "Rust toolchain absent; toolchain/dependency download unavailable"
+  },
+  "http_e2e": {
+    "executed": false,
+    "launcher_exit_code": 2,
+    "message": "UNEXECUTED: Rust binary is missing. Run cargo build; no substitute server will be used."
+  },
+  "not_verified": [
+    "real browser UI",
+    "cross-device HTTPS",
+    "real SMTP or inbox delivery",
+    "target GitHub README copy button",
+    "remote CI",
+    "third-party skill clients",
+    "host-specific account adapters",
+    "memory/performance",
+    "independent security audit"
+  ],
+  "environment": {
+    "python": "3.13.5",
+    "sqlite": "3.46.1",
+    "node": "22.16.0",
+    "pytest": "9.0.2",
+    "cryptography": "46.0.4",
+    "PyYAML": "6.0.3",
+    "jsonschema": "4.26.0",
+    "markdown-it-py": "4.2.0",
+    "CairoSVG": "2.8.2"
+  },
+  "production_ready": false
+}

@@ -1,0 +1,5 @@
+cryptography>=43,<47
+PyYAML>=6,<7
+jsonschema>=4.23,<5
+pytest>=8,<10
+markdown-it-py>=4,<5

@@ -1,0 +1,27 @@
+{
+  "protocol_version": "HumanGrant Protocol 0.1 Draft",
+  "request_id": "request_example",
+  "status": "waiting",
+  "status_text": "等待人类中",
+  "phase": "waiting_human",
+  "created_at": 1700000000,
+  "status_updated_at": 1700000000,
+  "checked_at": 1700000005,
+  "expires_at": 1700000600,
+  "poll_after_seconds": 5,
+  "human_authorization_url": "https://auth.example.test/human/human_link_example",
+  "requested_permissions": [
+    {
+      "action": "notes.read",
+      "resource": "alice-note"
+    }
+  ],
+  "email_request_status": "not_requested",
+  "email_retry_after_seconds": 0,
+  "target_service": "notes",
+  "client_id": "example-cli",
+  "forwarding_prompt": "Open the human_authorization_url on your own device. Review the exact permissions, then approve or refuse. Never send your password, cookie, or private key to the AI.",
+  "grant_id": null,
+  "grant_status": "none",
+  "grant_expires_at": null
+}

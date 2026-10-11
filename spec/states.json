@@ -1,0 +1,10 @@
+{
+  "waiting_human": {"status": "waiting", "status_text": "等待人类中", "terminal": false},
+  "authenticating_human": {"status": "human_login", "status_text": "人类登录中", "terminal": false},
+  "awaiting_consent": {"status": "human_login", "status_text": "人类登录中", "terminal": false},
+  "approved": {"status": "human_login", "status_text": "人类登录中", "terminal": false},
+  "succeeded": {"status": "success", "status_text": "登录成功", "terminal": true},
+  "rejected": {"status": "rejected", "status_text": "已拒绝", "terminal": true},
+  "expired": {"status": "expired", "status_text": "已过期", "terminal": true},
+  "cancelled": {"status": "cancelled", "status_text": "已取消", "terminal": true}
+}

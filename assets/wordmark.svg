@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="260" viewBox="0 0 1120 260" role="img" aria-labelledby="title desc">
+<title id="title">HumanGrant — Human permission. Agent identity.</title>
+<desc id="desc">An open protocol for AI agents to sign in with human permission. Protocol 0.1 Draft.</desc>
+<defs><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0v32" fill="none" stroke="#b6dfc9" stroke-opacity=".055"/></pattern></defs>
+<rect width="1120" height="260" rx="22" fill="#101f1b"/><rect width="1120" height="260" rx="22" fill="url(#grid)"/>
+<text x="46" y="46" fill="#a5ccb8" font-family="Arial,Helvetica,sans-serif" font-size="12" letter-spacing="2.5">OPEN AUTHORIZATION · PROTOCOL 0.1 DRAFT</text>
+<text x="44" y="130" fill="#f0f6f2" font-family="Arial,Helvetica,sans-serif" font-size="68" font-weight="700" letter-spacing="-2.5">HumanGrant</text>
+<text x="48" y="172" fill="#c4d6cb" font-family="Arial,Helvetica,sans-serif" font-size="21">Human permission. Agent identity.</text>
+<text x="48" y="220" fill="#8da99a" font-family="Arial,Helvetica,sans-serif" font-size="14">An open protocol for AI agents to sign in with human permission.</text>
+<g transform="translate(738 62)">
+<rect width="114" height="114" rx="29" fill="#1b3128" stroke="#496d58"/>
+<circle cx="57" cy="43" r="12" fill="none" stroke="#d5eee0" stroke-width="3"/>
+<path d="M33 84c0-24 48-24 48 0" fill="none" stroke="#d5eee0" stroke-width="3" stroke-linecap="round"/>
+<path d="M130 57h37m-8-7 8 7-8 7" fill="none" stroke="#8dd4ad" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="184" width="114" height="114" rx="29" fill="#1b3128" stroke="#496d58"/>
+<path d="m227 38-15 19 15 19m28-38 15 19-15 19" fill="none" stroke="#d5eee0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="241" cy="57" r="3" fill="#8dd4ad"/>
+<text x="57" y="143" fill="#9dbcaa" font-family="Arial,Helvetica,sans-serif" font-size="11" text-anchor="middle" letter-spacing="1.5">GRANTOR</text>
+<text x="241" y="143" fill="#9dbcaa" font-family="Arial,Helvetica,sans-serif" font-size="11" text-anchor="middle" letter-spacing="1.5">ACTOR</text>
+</g></svg>

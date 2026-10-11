@@ -1,0 +1,660 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LIghtJUNction/humangrant/blob/main/schemas/protocol.json",
+  "title": "HumanGrant Protocol 0.1 Draft field definitions",
+  "$defs": {
+    "Permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]{1,63}$"
+        },
+        "resource": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        }
+      },
+      "required": [
+        "action",
+        "resource"
+      ]
+    },
+    "Empty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "CreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "target_service": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "requested_permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Permission"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "expected_human_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "session_ttl_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 86400
+        }
+      },
+      "required": [
+        "client_id",
+        "target_service",
+        "purpose",
+        "requested_permissions"
+      ]
+    },
+    "Approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Permission"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "permissions",
+        "expires_at"
+      ]
+    },
+    "EmailRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "pattern": "^[^\\r\\n]+@[^\\r\\n]+$",
+          "description": "Common ASCII mailbox syntax only; see spec/v0.1.md. Trimmed and lowercased for limiting."
+        },
+        "idempotency_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        }
+      },
+      "required": [
+        "email",
+        "idempotency_key"
+      ]
+    },
+    "Verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "public_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{86}==$"
+        }
+      },
+      "required": [
+        "public_key",
+        "signature"
+      ]
+    },
+    "NoteUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string",
+          "maxLength": 16384,
+          "description": "The server also limits UTF-8 body bytes to 16 KiB."
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "State": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": "HumanGrant Protocol 0.1 Draft"
+        },
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "cancelled",
+            "expired",
+            "human_login",
+            "rejected",
+            "success",
+            "waiting"
+          ]
+        },
+        "status_text": {
+          "type": "string",
+          "enum": [
+            "人类登录中",
+            "已取消",
+            "已拒绝",
+            "已过期",
+            "登录成功",
+            "等待人类中"
+          ]
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "waiting_human",
+            "authenticating_human",
+            "awaiting_consent",
+            "approved",
+            "succeeded",
+            "rejected",
+            "expired",
+            "cancelled"
+          ]
+        },
+        "created_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status_updated_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checked_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "poll_after_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60
+        },
+        "human_authorization_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "requested_permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Permission"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "email_request_status": {
+          "type": "string",
+          "enum": [
+            "not_requested",
+            "accepted",
+            "unavailable"
+          ]
+        },
+        "email_retry_after_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target_service": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "client_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "forwarding_prompt": {
+          "type": "string"
+        },
+        "grant_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "grant_status": {
+          "type": "string",
+          "enum": [
+            "none",
+            "pending_claim",
+            "active",
+            "restricted",
+            "permissions_removed",
+            "unclaimed_expired",
+            "revoked",
+            "expired",
+            "account_disabled"
+          ]
+        },
+        "grant_expires_at": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "status",
+        "status_text",
+        "phase",
+        "created_at",
+        "status_updated_at",
+        "checked_at",
+        "expires_at",
+        "poll_after_seconds",
+        "human_authorization_url",
+        "requested_permissions",
+        "email_request_status",
+        "email_retry_after_seconds",
+        "target_service",
+        "client_id",
+        "forwarding_prompt",
+        "grant_id",
+        "grant_status",
+        "grant_expires_at"
+      ]
+    },
+    "Claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "token_type": {
+          "const": "HumanGrant"
+        },
+        "grant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "access_token",
+        "token_type",
+        "grant_id",
+        "expires_at"
+      ]
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "string",
+          "pattern": "^[a-z_]+$"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retry_after_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "error",
+        "message",
+        "retry_after_seconds"
+      ]
+    },
+    "EmailAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "email_request_status": {
+          "const": "accepted"
+        },
+        "email_retry_after_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "email_request_status",
+        "email_retry_after_seconds",
+        "message"
+      ]
+    },
+    "Challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "challenge": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge",
+        "expires_at",
+        "message"
+      ]
+    },
+    "Verified": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": "awaiting_consent"
+        },
+        "human_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "csrf": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "status",
+        "human_id",
+        "csrf"
+      ]
+    },
+    "Decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "rejected",
+            "cancelled",
+            "revoked",
+            "recorded"
+          ]
+        },
+        "grant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "SessionContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "ai"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^ed25519:[A-Za-z0-9_-]{43}$"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ]
+        },
+        "grantor_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "grant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "client_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "target_service": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audit_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "effective_permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Permission"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "actor",
+        "grantor_id",
+        "grant_id",
+        "client_id",
+        "target_service",
+        "expires_at",
+        "audit_id",
+        "effective_permissions"
+      ]
+    },
+    "Grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "grant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "request_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "grantor_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "actor_id": {
+          "type": "string",
+          "pattern": "^ed25519:[A-Za-z0-9_-]{43}$"
+        },
+        "public_key_id": {
+          "type": "string",
+          "pattern": "^ed25519:[A-Za-z0-9_-]{43}$"
+        },
+        "client_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "target_service": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Permission"
+          }
+        },
+        "created_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "audit_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        }
+      },
+      "required": [
+        "grant_id",
+        "request_id",
+        "grantor_id",
+        "actor_id",
+        "public_key_id",
+        "client_id",
+        "target_service",
+        "permissions",
+        "created_at",
+        "expires_at",
+        "revoked_at",
+        "audit_id"
+      ]
+    },
+    "GrantList": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "grants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Grant"
+          }
+        }
+      },
+      "required": [
+        "grants"
+      ]
+    },
+    "NoteResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context": {
+          "type": "object",
+          "required": [
+            "actor",
+            "grantor_id",
+            "target_service"
+          ]
+        },
+        "resource": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "content"
+          ]
+        }
+      },
+      "required": [
+        "context",
+        "resource"
+      ]
+    }
+  }
+}

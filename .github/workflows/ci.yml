@@ -1,0 +1,43 @@
+name: protocol-and-reference
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Prompt synchronization
+        run: python scripts/sync_prompt.py --check
+      - name: Skills, source links, schemas and SVG buttons
+        run: python scripts/check.py
+      - name: Rust formatting
+        run: cargo fmt --check
+      - name: Rust static checks
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Rust protocol and dispatcher tests
+        run: cargo test
+      - name: Independent client, SQL and contract tests
+        run: python -m pytest -q
+      - name: JavaScript syntax
+        run: |
+          node --check examples/web/ui.js
+          node --check examples/web/webcrypto.js
+      - name: Build reference binary
+        run: cargo build
+      - name: Real public HTTP flow, local email only
+        run: python scripts/e2e.py --binary target/debug/humangrant
