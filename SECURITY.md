@@ -33,7 +33,7 @@ is not implemented. External services must recheck locally or use a trusted fail
 with an appropriate transaction design; caching an introspection result indefinitely is unsafe.
 
 Human login does not approve a grant. Opening links by GET does not authenticate or approve.
-Human writes require an exact Origin, SameSite=Strict/HttpOnly cookie, and session-bound CSRF token.
+Human writes require an exact Origin, SameSite=Lax/HttpOnly cookie, and session-bound CSRF token.
 Login rotates the cookie and consumes the challenge. Expected-human restrictions are enforced.
 Mail refusal links can refuse an unfinished request or block future invitations; they cannot approve,
 claim a credential, or revoke a completed human grant. Someone with a leaked mail refusal link can

@@ -21,6 +21,11 @@ profile and public test vector; do not improvise string concatenation or bearer-
 `HumanAuthenticator` in `src/auth.rs` is trusted server code; implementing the trait is not proof
 that an adapter is correct. The host must authenticate, map to a stable local account, and enforce
 current policy. Never expose arbitrary account IDs as a public authentication method.
+Check an existing login through `HumanAuthenticator::session_principal(db, cookie, now)` or the
+host's equivalent server-side session API. A valid login skips identity verification and shows
+permission confirmation immediately. Check the same account again when consent is submitted.
+Do not copy the login lifetime, cache a logged-out principal, or treat opening a link as consent.
+Test a second request with the same browser, an expired login, an account switch, and GET scanning.
 
 Real commands from the HumanGrant checkout:
 

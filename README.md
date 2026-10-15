@@ -39,7 +39,7 @@ Read https://github.com/LIghtJUNction/humangrant/blob/main/skills/humangrant-int
 
 **Request → Approve → Act**
 
-The agent sends you a link or email invitation. You open it on your device and choose the actions and resources it can use. The agent continues with its own identity. You can revoke access at any time.
+The agent sends you a link or email invitation. You open it on your device and choose the actions and resources it can use. Already signed in? Go straight to approval. The agent continues with its own identity. You can revoke access at any time.
 
 ## Run locally
 

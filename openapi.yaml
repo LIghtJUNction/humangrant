@@ -651,7 +651,7 @@ components:
       type: apiKey
       in: cookie
       name: hg_browser
-      description: HttpOnly, SameSite=Strict, Secure with HTTPS; independent of AI credentials.
+      description: HttpOnly, SameSite=Lax, Secure with HTTPS; independent of AI credentials. A valid existing human login skips reauthentication, not consent.
   responses:
     Error:
       description: A fixed, non-sensitive error. Respect Retry-After for 429 and bounded 5xx retries.

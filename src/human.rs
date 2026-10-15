@@ -63,7 +63,7 @@ fn make_browser(
 
 pub fn cookie(config: &Config, token: &str) -> String {
     format!(
-        "hg_browser={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=1800{}",
+        "hg_browser={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=1800{}",
         if config.public_origin.starts_with("https://") {
             "; Secure"
         } else {
@@ -96,6 +96,53 @@ pub fn authenticated_account(db: &Connection, session: &Browser) -> Result<Strin
     Ok(human.clone())
 }
 
+fn current_account(
+    db: &Connection,
+    authenticator: &dyn HumanAuthenticator,
+    cookie: &str,
+    now: i64,
+) -> Result<Option<String>> {
+    let Some(principal) = authenticator.session_principal(db, cookie, now)? else {
+        return Ok(None);
+    };
+    let enabled: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM accounts WHERE id=?1 AND enabled=1)",
+        params![principal.account_id],
+        |row| row.get(0),
+    )?;
+    Ok(enabled.then_some(principal.account_id))
+}
+
+fn action_message(scope: [&str; 3]) -> Result<String> {
+    Ok(serde_json::to_string(&json!([
+        "HumanGrant browser action 0.1",
+        scope
+    ]))?)
+}
+
+fn action_csrf(session: &Browser, scope: [&str; 3]) -> Result<String> {
+    crypto::private_hash(session.csrf.as_bytes(), &action_message(scope)?)
+}
+
+fn check_action(
+    session: &Browser,
+    origin: &str,
+    csrf: &str,
+    config: &Config,
+    scope: [&str; 3],
+) -> Result<()> {
+    if origin != config.public_origin
+        || !crypto::private_hash_matches(session.csrf.as_bytes(), &action_message(scope)?, csrf)?
+    {
+        return Err(Error::new(
+            403,
+            "csrf_failed",
+            "Reload this page and confirm the displayed account and request.",
+        ));
+    }
+    Ok(())
+}
+
 fn same_request(session: &Browser, request: &RequestRecord) -> Result<()> {
     if session.request_id.as_deref() != Some(request.id.as_str()) {
         return Err(Error::forbidden());
@@ -106,13 +153,16 @@ fn same_request(session: &Browser, request: &RequestRecord) -> Result<()> {
 pub fn page(
     store: &mut Store,
     config: &Config,
+    authenticator: &dyn HumanAuthenticator,
     link: &str,
     supplied_cookie: &str,
     source: &str,
 ) -> Result<(Value, Option<String>)> {
     store.atomic(|db,now| {
         let request=db::request_by_link(db,link)?;
-        let old=browser(db,supplied_cookie).ok().filter(|session|session.request_id.as_deref()==Some(request.id.as_str()));
+        let human=current_account(db,authenticator,supplied_cookie,now)?;
+        // Reuse the login without rebinding it to a request or extending its lifetime.
+        let old=browser(db,supplied_cookie).ok().filter(|session|human.is_some() || session.request_id.as_deref()==Some(request.id.as_str()));
         let (session,new_cookie)=match old {
             Some(session)=>(session,None),
             None=> {
@@ -122,14 +172,17 @@ pub fn page(
                 (browser(db,&format!("hg_browser={token}"))?,Some(cookie(config,&token)))
             }
         };
-        let human=authenticated_account(db,&session).ok();
+        let csrf=match &human {
+            Some(account)=>action_csrf(&session,["consent",&request.id,account])?,
+            None=>session.csrf.clone(),
+        };
         let mut grantable=vec![];
         if let Some(account)=&human {
             for permission in &request.permissions {
                 if requests::human_permission(db,account,permission)? { grantable.push(permission.clone()); }
             }
         }
-        Ok((json!({"view":"human","protocol_version":crate::model::PROTOCOL,"csrf":session.csrf,
+        Ok((json!({"view":"human","protocol_version":crate::model::PROTOCOL,"csrf":csrf,
             "origin":config.public_origin,"request_id":request.id,"link":link,"phase":request.phase,
             "actor_id":request.actor_id,"client_id":request.client_id,"target_service":request.target_service,
             "purpose":request.purpose,"requested_permissions":request.permissions,"grantable_permissions":grantable,
@@ -197,12 +250,14 @@ pub fn verify(
         if request.expected_human_id.as_deref().is_some_and(|id|id!=principal.account_id) {
             return Err(Error::new(403,"expected_human_mismatch","This request requires a different account."));
         }
-        let (token,csrf)=make_browser(db,Some(&request.id),Some(&principal.account_id),now)?;
+        let (token,_)=make_browser(db,Some(&request.id),Some(&principal.account_id),now)?;
         // Deleting the old session consumes its challenge and prevents session fixation.
         db.execute("DELETE FROM browser_sessions WHERE token_hash=?1",params![session.token_hash])?;
         if request.phase=="authenticating_human" {
             db.execute("UPDATE requests SET phase='awaiting_consent',status_updated_at=hg_now() WHERE id=?1",params![request.id])?;
         }
+        let session=browser(db,&format!("hg_browser={token}"))?;
+        let csrf=action_csrf(&session,["consent",&request.id,&principal.account_id])?;
         Ok((json!({"status":"awaiting_consent","human_id":principal.account_id,"csrf":csrf}),cookie(config,&token)))
     })
 }
@@ -210,6 +265,7 @@ pub fn verify(
 pub fn decide(
     store: &mut Store,
     config: &Config,
+    authenticator: &dyn HumanAuthenticator,
     browser_write: &BrowserWrite<'_>,
     approval: Option<&Approval>,
 ) -> Result<Value> {
@@ -217,9 +273,15 @@ pub fn decide(
         let request = db::request_by_link(db, browser_write.link)?;
         db::require_open(&request, now)?;
         let session = browser(db, browser_write.cookie)?;
-        same_request(&session, &request)?;
-        csrf_check(&session, browser_write.origin, browser_write.csrf, config)?;
-        let human = authenticated_account(db, &session)?;
+        let human = current_account(db, authenticator, browser_write.cookie, now)?
+            .ok_or_else(Error::forbidden)?;
+        check_action(
+            &session,
+            browser_write.origin,
+            browser_write.csrf,
+            config,
+            ["consent", &request.id, &human],
+        )?;
         if request
             .expected_human_id
             .as_deref()
@@ -231,12 +293,20 @@ pub fn decide(
                 "This request requires a different account.",
             ));
         }
+        if !["waiting_human", "authenticating_human", "awaiting_consent"]
+            .contains(&request.phase.as_str())
+        {
+            return Err(Error::state());
+        }
+        // A protected, explicit decision may skip a new login. A GET never advances consent.
+        db.execute(
+            "UPDATE requests SET phase='awaiting_consent',status_updated_at=hg_now()
+            WHERE id=?1 AND phase IN ('waiting_human','authenticating_human')",
+            params![request.id],
+        )?;
         if let Some(approval) = approval {
             requests::approve(db, &request.id, &human, approval, now)
         } else {
-            if request.phase != "awaiting_consent" {
-                return Err(Error::state());
-            }
             db.execute(
                 "UPDATE requests SET phase='rejected',status_updated_at=hg_now() WHERE id=?1",
                 params![request.id],
@@ -246,12 +316,19 @@ pub fn decide(
     })
 }
 
-pub fn grants_page(store: &mut Store, config: &Config, cookie: &str) -> Result<Value> {
-    store.atomic(|db, _| {
+pub fn grants_page(
+    store: &mut Store,
+    config: &Config,
+    authenticator: &dyn HumanAuthenticator,
+    cookie: &str,
+) -> Result<Value> {
+    store.atomic(|db, now| {
         let session = browser(db, cookie)?;
-        let human = authenticated_account(db, &session)?;
+        let human =
+            current_account(db, authenticator, cookie, now)?.ok_or_else(Error::forbidden)?;
+        let csrf = action_csrf(&session, ["grants", "", &human])?;
         Ok(
-            json!({"view":"grants","origin":config.public_origin,"csrf":session.csrf,
+            json!({"view":"grants","origin":config.public_origin,"csrf":csrf,
             "human_id":human,"grants":requests::list_grants(db,&human)?["grants"]}),
         )
     })
@@ -260,15 +337,21 @@ pub fn grants_page(store: &mut Store, config: &Config, cookie: &str) -> Result<V
 pub fn revoke(
     store: &mut Store,
     config: &Config,
+    authenticator: &dyn HumanAuthenticator,
     id: &str,
-    cookie: &str,
-    origin: &str,
-    csrf: &str,
+    write: &BrowserWrite<'_>,
 ) -> Result<Value> {
-    store.atomic(|db, _| {
-        let session = browser(db, cookie)?;
-        csrf_check(&session, origin, csrf, config)?;
-        let human = authenticated_account(db, &session)?;
+    store.atomic(|db, now| {
+        let session = browser(db, write.cookie)?;
+        let human =
+            current_account(db, authenticator, write.cookie, now)?.ok_or_else(Error::forbidden)?;
+        check_action(
+            &session,
+            write.origin,
+            write.csrf,
+            config,
+            ["grants", "", &human],
+        )?;
         requests::revoke(db, id, &human)
     })
 }
@@ -283,7 +366,7 @@ pub fn invite_page(
     store.atomic(|db,now| {
         let request_id=db.query_row("SELECT request_id FROM mail_operations WHERE action_token=?1",params![token],|r| r.get::<_,String>(0))
             .optional()?.ok_or_else(Error::not_found)?;
-        let old=browser(db,supplied_cookie).ok().filter(|s|s.request_id.as_deref()==Some(request_id.as_str()));
+        let old=browser(db,supplied_cookie).ok();
         let (session,new_cookie)=match old {
             Some(session)=>(session,None),
             None=> {
@@ -293,7 +376,7 @@ pub fn invite_page(
                 (browser(db,&format!("hg_browser={new_token}"))?,Some(cookie(config,&new_token)))
             }
         };
-        Ok((json!({"view":"invite","csrf":session.csrf,"token":token,"origin":config.public_origin}),new_cookie))
+        Ok((json!({"view":"invite","csrf":action_csrf(&session,["invite",token,""] )?,"token":token,"origin":config.public_origin}),new_cookie))
     })
 }
 
@@ -310,8 +393,7 @@ pub fn refuse_mail(
         let (request,recipient)=db.query_row("SELECT request_id,recipient_hash FROM mail_operations WHERE action_token=?1",
             params![token],|r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?.ok_or_else(Error::not_found)?;
         let session=browser(db,cookie)?;
-        csrf_check(&session,origin,csrf,config)?;
-        if session.request_id.as_deref()!=Some(request.as_str()) { return Err(Error::forbidden()); }
+        check_action(&session,origin,csrf,config,["invite",token,""])?;
         if block {
             db.execute("INSERT OR IGNORE INTO mail_blocks(recipient_hash,created_at) VALUES(?1,hg_now())",params![recipient])?;
             db.execute("UPDATE mail_operations SET state='expired',transport_updated_at=hg_now() WHERE recipient_hash=?1 AND state='queued'",params![recipient])?;
