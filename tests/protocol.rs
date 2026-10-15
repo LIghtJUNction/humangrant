@@ -562,7 +562,9 @@ fn duplicate_approval_and_claim_do_not_issue_another_credential() {
 #[test]
 fn revoke_preserves_history_but_removes_access() {
     let mut h = Harness::new();
-    let (state, issued, browser) = h.authorized();
+    let (state, issued, mut browser) = h.authorized();
+    let grants = h.browser("GET", "/human/grants", &browser.cookie, "", json!({}));
+    browser.csrf = text(&page_data(&grants), "csrf");
     let revoke = h.browser(
         "POST",
         &format!("/human/grants/{}/revoke", text(&issued, "grant_id")),
@@ -768,3 +770,6 @@ fn invalid_origin_and_public_plain_http_are_rejected() {
     config.listen = "0.0.0.0:8787".into();
     assert!(config.validate().is_err());
 }
+
+#[path = "cases/existing_login.rs"]
+mod existing_login;

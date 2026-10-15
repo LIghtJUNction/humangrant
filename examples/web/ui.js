@@ -15,7 +15,7 @@ function requestMetadata() { metadata([["Target service",data.target_service],["
 
 async function humanView() {
   title("HUMAN REVIEW", "You decide the scope.", "Verify the agent's key and the resource names before granting any access.");
-  app.append(element("span",data.phase.replaceAll("_"," "),"badge")); requestMetadata();
+  app.append(element("span",data.human_id && ["waiting_human","authenticating_human","awaiting_consent"].includes(data.phase) ? "Ready for your decision" : data.phase.replaceAll("_"," "),"badge")); requestMetadata();
   if (["succeeded","approved","rejected","expired","cancelled"].includes(data.phase)) {
     app.append(element("p",data.phase === "approved" ? "Your choice was recorded. The original AI must still claim its own session." : "This request no longer accepts a new decision.","notice"));
     if (data.human_id) { const link = element("a","View and revoke my grants →","link"); link.href = "/human/grants"; app.append(link); }
@@ -39,7 +39,11 @@ async function humanView() {
     const proof = element("textarea"); proof.placeholder = '{"public_key":"…","signature":"…"}'; proof.setAttribute("aria-label","Public verification proof"); alternative.append(proof,button("Verify this proof",async()=>{const value=JSON.parse(proof.value); if(Object.keys(value).sort().join(",")!=="public_key,signature") throw new Error("Paste a public key and signature only, never a private key."); await post(`/human/${data.link}/verify`,value);location.reload();})); app.append(alternative);
     return;
   }
-  app.append(element("p",`Authenticated account: ${data.human_id}. Signing in did not approve this request.` ,"notice"));
+  if (data.expected_human_id && data.expected_human_id !== data.human_id) {
+    app.append(element("p",`Signed in as ${data.human_id}. This request requires ${data.expected_human_id}. Switch accounts in this site's login, then reopen this link.`,"notice"));
+    return;
+  }
+  app.append(element("p",`Signed in as ${data.human_id}. Choose the access to approve; no new login is needed.` ,"notice"));
   app.append(element("h3","Select only what the agent needs"));
   const choices = data.requested_permissions.map(permission => permissionLabel(permission,data.grantable_permissions.some(p=>p.action===permission.action&&p.resource===permission.resource)));
   choices.forEach(choice=>app.append(choice.label));

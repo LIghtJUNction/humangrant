@@ -109,7 +109,7 @@ def process(database: Path, transport: Callable[[dict[str, str]], str], *,
     results: list[tuple[str, str]] = []
     try:
         db.execute('PRAGMA foreign_keys=ON')
-        if db.execute('PRAGMA user_version').fetchone()[0] != 1:
+        if db.execute('PRAGMA user_version').fetchone()[0] not in (1, 2):
             raise ValueError('Unsupported database schema')
         # Only the lock owner may classify interrupted attempts from a previous worker.
         db.execute("UPDATE mail_operations SET state='delivery_unknown',transport_updated_at=hg_now() WHERE state='sending'")

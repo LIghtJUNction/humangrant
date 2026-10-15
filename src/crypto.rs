@@ -27,6 +27,15 @@ pub fn private_hash(secret: &[u8], value: &str) -> Result<String> {
     Ok(URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes()))
 }
 
+pub fn private_hash_matches(secret: &[u8], value: &str, tag: &str) -> Result<bool> {
+    let Ok(tag) = URL_SAFE_NO_PAD.decode(tag) else {
+        return Ok(false);
+    };
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret).map_err(|_| Error::internal())?;
+    mac.update(value.as_bytes());
+    Ok(mac.verify_slice(&tag).is_ok())
+}
+
 pub fn public_key(encoded: &str) -> Result<VerifyingKey> {
     let bytes = URL_SAFE_NO_PAD
         .decode(encoded)

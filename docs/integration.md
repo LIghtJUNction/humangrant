@@ -19,7 +19,12 @@ The default implementation verifies the exact human challenge using an operator-
 key and checks the enabled local account. An adapter must remain trusted server code. It must verify
 real, short-lived host evidence and map to a stable account; returning any caller's `user_id` is not an
 adapter. It must remain bound to the challenge, browser/request and CSRF-protected consent context.
-This interface is not a claim that existing browser sessions for every host can be attached unchanged.
+For an existing browser login, override `HumanAuthenticator::session_principal(db, cookie, now)`.
+It is called on review, consent, grant listing and revocation. Validate the host's actual session,
+expiry, logout and current account, then return its principal; return `None` for no valid login.
+The override is authoritative and does not fall back to a reference cookie. The account must be
+mapped to the host's current permission records. Do not copy a host identity into a long-lived
+reference session. The default implementation checks the reference's public-key-verified login.
 
 The HTTP schemas contain public-key/signature evidence for the reference proof. A different host login
 mechanism needs its own documented host-bound verification endpoint or a fully specified proof adapter;
@@ -55,6 +60,8 @@ alone is not a working sign-in action. The demo button in [ui.js](../examples/we
 independent agent identity, calls the request API, then reads actual Markdown. The human link opens a
 separate same-origin review page. It shows the requester key, untrusted purpose, exact service and
 permissions, current human account and expiry. All choices start unchecked; approval is a separate POST.
+A logged-in visitor sees these choices immediately, including on a new request. Reuse does not
+extend the login lifetime. A changed or expired account must not submit the old confirmation.
 
 Do not expose the human's cookie or private key to an AI. The human cookie and AI access credential are
 separate stores and different proofs. Do not infer role from User-Agent or the string "human" or "AI".

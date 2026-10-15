@@ -61,12 +61,15 @@ impl Store {
                 ));
             }
             connection.execute_batch(include_str!("../migrations/0001.sql"))?;
-        } else if version != 1 {
+        } else if version != 1 && version != 2 {
             return Err(Error::new(
                 400,
                 "invalid_database",
                 "This database version is not supported.",
             ));
+        }
+        if version < 2 {
+            connection.execute_batch(include_str!("../migrations/0002_existing_login.sql"))?;
         }
         let mut store = Self {
             connection,

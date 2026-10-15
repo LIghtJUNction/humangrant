@@ -168,12 +168,15 @@ def run(binary: Path) -> int:
                 spooled=list((folder/'state/outbox').glob('*.eml'));assert len(spooled)==1
                 message=spooled[0].read_text();assert state['human_authorization_url'] in message
                 assert 'HumanGrant permission request' in message and 'notes.read' in message
-                mail_human=Human(origin,alice_key);mail_human.open(path)
-                assert mail_human.authenticate(path)[0]==200
+                mail_human=human
+                reviewed=mail_human.open(path)
+                assert reviewed['human_id']=='alice' and reviewed['phase']=='waiting_human'
+                assert client.state(request)['phase']=='waiting_human'
+                expect_error(lambda:client.request('POST',f'/v1/requests/{request}/claim'),409)
                 assert mail_human.approve(path,int(time.time())+300)[0]==200
                 issued=client.request('POST',f'/v1/requests/{request}/claim');issued_tokens.append(issued['access_token'])
                 assert client.request('GET','/v1/notes/alice-note',token=issued['access_token'])['context']['grantor_id']=='alice'
-                checks.append('local .eml invitation + idempotency + real consent + restricted read')
+                checks.append('local .eml invitation + existing login without reauthentication + explicit consent + restricted read')
 
                 state=create(client);request=state['request_id'];path=urllib.parse.urlsplit(state['human_authorization_url']).path
                 mismatch=Human(origin,bob_key);mismatch.open(path)

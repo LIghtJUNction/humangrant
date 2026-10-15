@@ -30,8 +30,10 @@ def sql(db: sqlite3.Connection, name: str, values: dict[str, Any] | None = None)
     return db.execute((ROOT / "src/sql" / (name + ".sql")).read_text(), values or {})
 
 
-def initialize(db: sqlite3.Connection) -> None:
+def initialize(db: sqlite3.Connection, *, existing_login: bool = True) -> None:
     db.executescript((ROOT / "migrations/0001.sql").read_text())
+    if existing_login:
+        db.executescript((ROOT / "migrations/0002_existing_login.sql").read_text())
     for account in ("alice", "bob"):
         db.execute("INSERT INTO accounts(id,key_id,public_key) VALUES(?,?,?)", (account, "human:" + account, "public:" + account))
     db.execute("INSERT INTO clients VALUES('example-cli','notes')")

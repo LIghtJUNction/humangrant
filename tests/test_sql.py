@@ -111,7 +111,7 @@ def test_request_binding_cannot_be_changed(database, field, value):
         db.execute(f"UPDATE requests SET {field}=? WHERE id='r1'", (value,))
 
 
-@pytest.mark.parametrize("target", ["approved", "succeeded", "awaiting_consent"])
+@pytest.mark.parametrize("target", ["approved", "succeeded"])
 def test_cannot_skip_state_transitions(database, target):
     db, clock, _ = database
     create(db, clock)

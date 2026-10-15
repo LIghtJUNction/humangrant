@@ -302,19 +302,41 @@ impl App {
         let csrf = request.header("x-hg-csrf");
         match (request.method.as_str(), parts.as_slice()) {
             ("GET", ["human", "grants"]) => HttpOutput::page(
-                human::grants_page(&mut self.store, &self.config, cookie)?,
+                human::grants_page(
+                    &mut self.store,
+                    &self.config,
+                    self.authenticator.as_ref(),
+                    cookie,
+                )?,
                 None,
             ),
             ("POST", ["human", "grants", id, "revoke"]) => {
                 let _: Empty = request.json()?;
                 HttpOutput::json(
                     200,
-                    human::revoke(&mut self.store, &self.config, id, cookie, origin, csrf)?,
+                    human::revoke(
+                        &mut self.store,
+                        &self.config,
+                        self.authenticator.as_ref(),
+                        id,
+                        &BrowserWrite {
+                            link: "",
+                            cookie,
+                            origin,
+                            csrf,
+                        },
+                    )?,
                 )
             }
             ("GET", ["human", link]) => {
-                let (page, new_cookie) =
-                    human::page(&mut self.store, &self.config, link, cookie, &request.source)?;
+                let (page, new_cookie) = human::page(
+                    &mut self.store,
+                    &self.config,
+                    self.authenticator.as_ref(),
+                    link,
+                    cookie,
+                    &request.source,
+                )?;
                 HttpOutput::page(page, new_cookie)
             }
             ("POST", ["human", link, "begin"]) => {
@@ -361,7 +383,13 @@ impl App {
                 };
                 HttpOutput::json(
                     200,
-                    human::decide(&mut self.store, &self.config, &write, Some(&input))?,
+                    human::decide(
+                        &mut self.store,
+                        &self.config,
+                        self.authenticator.as_ref(),
+                        &write,
+                        Some(&input),
+                    )?,
                 )
             }
             ("POST", ["human", link, "reject"]) => {
@@ -374,7 +402,13 @@ impl App {
                 };
                 HttpOutput::json(
                     200,
-                    human::decide(&mut self.store, &self.config, &write, None)?,
+                    human::decide(
+                        &mut self.store,
+                        &self.config,
+                        self.authenticator.as_ref(),
+                        &write,
+                        None,
+                    )?,
                 )
             }
             ("GET", ["invite", token]) => {
