@@ -286,6 +286,79 @@ impl Drop for Harness {
 }
 
 #[test]
+fn headless_discovery_is_public_and_uses_the_configured_origin() {
+    let config: Config = serde_json::from_value(json!({})).unwrap();
+    assert!(!config.agent_ui);
+    let mut h = Harness::new();
+    let mut expected = None;
+    for path in ["/", "/.well-known/humangrant.json"] {
+        let response = h.app.handle(HttpInput {
+            method: "GET".into(),
+            path: path.into(),
+            headers: BTreeMap::from([
+                ("host".into(), "untrusted.example".into()),
+                ("x-forwarded-host".into(), "untrusted.example".into()),
+                ("user-agent".into(), "Mozilla/5.0".into()),
+            ]),
+            body: vec![],
+            source: "127.0.0.1".into(),
+        });
+        assert_eq!(response.status, 200);
+        assert_eq!(
+            response.headers["Content-Type"],
+            "application/json; charset=utf-8"
+        );
+        assert_eq!(response.headers["Cache-Control"], "no-store");
+        assert!(!response.headers.contains_key("Set-Cookie"));
+        let data = value(&response);
+        assert_eq!(
+            data,
+            json!({
+                "protocol_version": "HumanGrant Protocol 0.1 Draft",
+                "origin": ORIGIN,
+                "request_endpoint": format!("{ORIGIN}/v1/requests"),
+                "session_endpoint": format!("{ORIGIN}/v1/session"),
+                "specification_url": format!("{ORIGIN}/spec/v0.1.md"),
+                "openapi_url": format!("{ORIGIN}/openapi.yaml"),
+                "schema_url": format!("{ORIGIN}/schemas/protocol.json"),
+                "agent_ui": false,
+            })
+        );
+        if let Some(ref previous) = expected {
+            assert_eq!(&data, previous);
+        }
+        expected = Some(data);
+    }
+    assert_eq!(
+        h.browser("GET", "/v1/session", "", "", json!({})).status,
+        401
+    );
+    assert_eq!(
+        h.browser("POST", "/.well-known/humangrant.json", "", "", json!({}))
+            .status,
+        404
+    );
+}
+
+#[test]
+fn agent_ui_is_opt_in_and_preserves_discovery_and_human_pages() {
+    let mut h = Harness::new();
+    h.app.config.agent_ui = serde_json::from_value::<Config>(json!({"agent_ui": true}))
+        .unwrap()
+        .agent_ui;
+    let root = h.browser("GET", "/", "", "", json!({}));
+    assert_eq!(root.status, 200);
+    assert_eq!(root.headers["Content-Type"], "text/html; charset=utf-8");
+    assert_eq!(page_data(&root)["view"], "agent");
+    let discovery = h.browser("GET", "/.well-known/humangrant.json", "", "", json!({}));
+    assert_eq!(discovery.status, 200);
+    assert_eq!(value(&discovery)["agent_ui"], true);
+    let state = h.create(Some("alice"));
+    let browser = h.open(&state);
+    assert!(!browser.csrf.is_empty());
+}
+
+#[test]
 fn public_signature_vector_verifies_in_rust() {
     let vector: Value = serde_json::from_str(include_str!("fixtures/signature.json")).unwrap();
     let headers = vector["headers"]

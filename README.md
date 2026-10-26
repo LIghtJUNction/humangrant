@@ -18,6 +18,9 @@
 
 ## Add to your project
 
+HumanGrant defaults to headless APIs and public discovery. No visible application button is required.
+The button below is an optional UI example; the human review, refusal, and revocation pages remain available.
+
 <p align="center">
   <a href="skills/humangrant-integrate/SKILL.md">
     <picture>
@@ -55,7 +58,12 @@ python examples/setup_demo.py --dir .state
 cargo run -- serve .state/config.json
 ```
 
-Open <http://127.0.0.1:8787>. Follow the [full example](examples/README.md) to connect an agent and read a note, or see [deployment](docs/deployment.md) for a remote server.
+The server starts headless: <http://127.0.0.1:8787> returns discovery JSON, with no visible application button.
+<http://127.0.0.1:8787/.well-known/humangrant.json> always serves public discovery, including when
+`"agent_ui": true` in `.state/config.json` enables the optional root demo UI. The default is `false`.
+AI clients must independently trust the configured origin; discovery is metadata, never authorization.
+Follow the [full example](examples/README.md) to connect an agent and read a note, or see
+[deployment](docs/deployment.md) for a remote server.
 
 ## Agent skills
 

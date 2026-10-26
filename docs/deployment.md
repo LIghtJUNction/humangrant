@@ -15,6 +15,22 @@ Run `cargo run -- serve .state/config.json`. Loopback HTTP requires `local_devel
 loopback public origin. Do not expose that plain HTTP listener by changing its bind to `0.0.0.0`;
 configuration validation rejects it. Protect the state directory and do not check it into Git.
 
+## Headless discovery and optional UI
+
+`agent_ui` is a boolean with a default of `false`; omitting it from the config keeps the server
+headless. `GET /` returns public discovery JSON with no visible application button. The human review,
+consent, refusal, grant listing and revocation pages remain available.
+
+`GET /.well-known/humangrant.json` always returns public discovery, even when setting
+`"agent_ui": true` in the config and restarting enables the optional root demo UI. This switch controls
+the root agent UI only. Discovery is public for all clients; do not add User-Agent filtering.
+
+The JSON fields are `protocol_version`, `origin`, `request_endpoint`, `session_endpoint`,
+`specification_url`, `openapi_url`, `schema_url`, and `agent_ui`. All endpoint and document URLs are
+absolute and use `public_origin`. Configure that origin correctly before handing the service to clients.
+Proxy both discovery paths without rewriting their meaning. Clients must independently trust the
+origin and check the returned URLs against it; discovery is metadata, never authorization.
+
 ## HTTPS and two devices
 
 Choose your own controlled hostname and verified TLS certificate. The placeholder `YOUR_AUTH_HOST`

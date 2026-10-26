@@ -15,6 +15,21 @@ implement the public protocol in the existing backend or add a trusted server-si
 standalone Rust `notes` example is not a universal authorization proxy for arbitrary services.
 The full effective-permission check belongs next to the protected operation, not only at login.
 
+Default to headless APIs and public discovery; do not require a visible application button.
+The reference config's `agent_ui` boolean defaults to `false`, so `GET /` returns discovery JSON.
+`GET /.well-known/humangrant.json` always returns public discovery, including when `agent_ui: true`
+enables the optional root demo UI. Do not filter by User-Agent. Keep the human consent, refusal,
+grant listing and revocation pages in either mode. Add a **Continue with human beings** button only
+when the host wants a visible entry point.
+
+Discovery fields are `protocol_version`, `origin`, `request_endpoint`, `session_endpoint`,
+`specification_url`, `openapi_url`, `schema_url`, and `agent_ui`. The protocol version is
+`HumanGrant Protocol 0.1 Draft`. Build absolute endpoint/document URLs from the configured origin:
+`/v1/requests`, `/v1/session`, `/spec/v0.1.md`, `/openapi.yaml`, and `/schemas/protocol.json`, respectively.
+Do not derive them from untrusted Host or forwarding headers. The AI client must independently trust
+the origin and validate the returned origin and URLs against it. Discovery is metadata, never
+authorization; request signatures, human consent and business-service checks still apply.
+
 The fixed human link is `/human/{link}`. Private Markdown is `/v1/requests/{id}/status.md`.
 Only the original signing identity may claim at `/v1/requests/{id}/claim`. Use the exact signature
 profile and public test vector; do not improvise string concatenation or bearer-only credentials.

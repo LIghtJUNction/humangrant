@@ -1,63 +1,70 @@
 {
   "protocol_version": "HumanGrant Protocol 0.1 Draft",
   "source_origin": "https://github.com/LIghtJUNction/humangrant.git",
-  "source_state": "local uncommitted draft; not pushed",
+  "source_state": "headless-default changes on feat/headless-discovery; validated locally before commit",
   "pytest": {
-    "passed": 166,
+    "passed": 182,
     "failed": 0,
-    "skipped": 0,
-    "cases_by_module": {
-      "tests.test_browser_crypto": 1,
-      "tests.test_client": 60,
-      "tests.test_contracts": 12,
-      "tests.test_docs": 6,
-      "tests.test_smtp": 19,
-      "tests.test_sql": 68
-    }
+    "skipped": 0
   },
   "other_executed_checks": [
     "python scripts/check.py",
     "python scripts/sync_prompt.py --check",
-    "python -m py_compile clients/*.py examples/*.py scripts/*.py tests/*.py",
+    "cargo fmt --check",
+    "cargo clippy --all-targets -- -D warnings",
+    "cargo build",
     "node --check examples/web/ui.js",
     "node --check examples/web/webcrypto.js",
-    "CairoSVG renders and visual inspection of wordmark and both buttons"
+    "git diff --check"
   ],
   "rust": {
-    "compiled": false,
-    "formatted": false,
-    "clippy_executed": false,
-    "tests_executed": false,
-    "test_functions_in_source": 17,
-    "cargo_lock_generated": false,
-    "blocker": "Rust toolchain absent; toolchain/dependency download unavailable"
+    "compiled": true,
+    "formatted": true,
+    "clippy_executed": true,
+    "tests_executed": true,
+    "test_command": "cargo test --locked",
+    "tests_passed": 28,
+    "cargo_lock_generated": true
   },
   "http_e2e": {
-    "executed": false,
-    "launcher_exit_code": 2,
-    "message": "UNEXECUTED: Rust binary is missing. Run cargo build; no substitute server will be used."
+    "executed": true,
+    "launcher_exit_code": 0,
+    "public_http": "passed",
+    "checks": [
+      "default headless JSON discovery and public contract documents",
+      "forwarded link + real human proof + narrowed scope + replay + revoke",
+      "local .eml invitation + existing login without reauthentication + explicit consent + restricted read",
+      "expected human mismatch + cancellation",
+      "authenticated refusal is terminal",
+      "concurrent HTTP claims issue exactly once",
+      "server log contains no issued credentials, cookies or recipient address"
+    ],
+    "real_mail_sent": false
   },
   "not_verified": [
     "real browser UI",
     "cross-device HTTPS",
     "real SMTP or inbox delivery",
     "target GitHub README copy button",
-    "remote CI",
+    "remote CI, CodeQL or review",
     "third-party skill clients",
     "host-specific account adapters",
     "memory/performance",
-    "independent security audit"
+    "independent security audit",
+    "minimum Rust version or platform compatibility matrix",
+    "release, signing, publication or deployment"
   ],
   "environment": {
-    "python": "3.13.5",
-    "sqlite": "3.46.1",
-    "node": "22.16.0",
-    "pytest": "9.0.2",
-    "cryptography": "46.0.4",
+    "rustc": "1.99.0",
+    "cargo": "1.99.0",
+    "python": "3.14.8",
+    "sqlite": "3.54.0",
+    "node": "26.12.1",
+    "pytest": "9.1.1",
+    "cryptography": "50.0.2",
     "PyYAML": "6.0.3",
     "jsonschema": "4.26.0",
-    "markdown-it-py": "4.2.0",
-    "CairoSVG": "2.8.2"
+    "markdown-it-py": "4.2.0"
   },
   "production_ready": false
 }

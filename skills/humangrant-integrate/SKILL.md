@@ -10,7 +10,7 @@ Read [the integration procedure](references/integration.md) for the real source 
 
 1. Inspect the target's files, `AGENTS.md`, Git status, identity, permissions, sessions, UI, database, tests, and deployment. Preserve unrelated work.
 2. Choose the smallest integration point. Keep existing accounts and login methods. Do not require third-party identity.
-3. Add the exact button **Continue with human beings**, the signed request API, a real Markdown state endpoint, and a separate human review page.
+3. Default to headless integration: public discovery, the signed request API, a real Markdown state endpoint, and separate human review, refusal, and revocation pages. No visible application button is required. In the reference, `agent_ui` defaults to `false`: `GET /` returns discovery JSON and `GET /.well-known/humangrant.json` always returns public discovery. Only add a visible **Continue with human beings** button or enable the optional root UI when the host wants it. Do not filter discovery by User-Agent.
 4. Check the existing server-verified login first: valid login → permission confirmation; no valid login → the site's login → confirmation. Do not require a logged-in user to authenticate again. Show actor key, service, actions, resources, expiry, and the actual grantor. Require explicit consent and recheck the login at submission.
 5. Implement fixed-template email, persistent destination/actor/source/service limits, cooldown, idempotency, and safe refusal. Default to a local sender.
 6. Create a separate AI session tied to the original signing key. Enforce requested ∩ approved ∩ current grantable ∩ service policy on every operation and resource.

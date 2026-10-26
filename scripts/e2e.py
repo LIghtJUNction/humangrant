@@ -5,6 +5,7 @@ import argparse
 import base64
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
+from jsonschema import Draft202012Validator
 import http.cookiejar
 import json
 from pathlib import Path
@@ -116,10 +117,32 @@ def run(binary: Path) -> int:
                     try:
                         with urllib.request.urlopen(origin+'/',timeout=1) as response:
                             assert response.status==200
+                            assert response.headers.get_content_type()=='application/json'
+                            assert response.headers.get('Cache-Control')=='no-store'
+                            discovery=json.load(response)
                         break
                     except (OSError,urllib.error.URLError):
                         if time.monotonic()>=deadline: raise RuntimeError('Rust server did not become ready')
                         time.sleep(0.05)
+                assert discovery=={
+                    'protocol_version':'HumanGrant Protocol 0.1 Draft',
+                    'origin':origin,'request_endpoint':origin+'/v1/requests',
+                    'session_endpoint':origin+'/v1/session','specification_url':origin+'/spec/v0.1.md',
+                    'openapi_url':origin+'/openapi.yaml','schema_url':origin+'/schemas/protocol.json',
+                    'agent_ui':False,
+                }
+                schema=json.loads((ROOT/'schemas/protocol.json').read_text())
+                Draft202012Validator({'$ref':'#/$defs/Discovery','$defs':schema['$defs']},
+                    format_checker=Draft202012Validator.FORMAT_CHECKER).validate(discovery)
+                with urllib.request.urlopen(origin+'/.well-known/humangrant.json',timeout=5) as response:
+                    assert response.headers.get_content_type()=='application/json'
+                    assert response.headers.get('Cache-Control')=='no-store'
+                    assert response.headers.get('Set-Cookie') is None
+                    assert json.load(response)==discovery
+                for field in ('specification_url','openapi_url','schema_url'):
+                    with urllib.request.urlopen(discovery[field],timeout=5) as response:
+                        assert response.status==200
+                checks.append('default headless JSON discovery and public contract documents')
                 state=create(client);request=state['request_id'];path=urllib.parse.urlsplit(state['human_authorization_url']).path
                 human=Human(origin,alice_key)
                 assert human.open(path)['phase']=='waiting_human'

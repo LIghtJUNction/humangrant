@@ -15,6 +15,18 @@ cargo build
 cargo run -- serve .state/config.json
 ```
 
+The default config starts headless: opening <http://127.0.0.1:8787> returns discovery JSON, with no
+visible application button. <http://127.0.0.1:8787/.well-known/humangrant.json> always provides public
+discovery. It contains `protocol_version`, `origin`, `request_endpoint`, `session_endpoint`,
+`specification_url`, `openapi_url`, `schema_url`, and `agent_ui`; endpoint and document URLs are absolute
+and use the configured public origin. Trust that origin independently before using the URLs.
+Discovery describes the service; it does not grant permission.
+
+No root UI is needed for this walkthrough. To try the optional root demo button, set `"agent_ui": true`
+in `.state/config.json` and restart the server; the default is `false`. The well-known discovery endpoint
+and the human review, refusal, and revocation pages remain available in either mode. Discovery is
+public without User-Agent filtering.
+
 In a second terminal:
 
 ```sh

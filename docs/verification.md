@@ -1,125 +1,65 @@
 # Local verification record
 
-**166 Python/SQLite/Node-backed test cases passed. The Rust server has not been compiled or run.**
-This is a local source handoff for HumanGrant Protocol 0.1 Draft, not a verified release or a
-production-readiness report. The source was created in an empty local workspace. The configured
-Git origin is `https://github.com/LIghtJUNction/humangrant.git`. No commit or push was made.
+**182 Python tests and 28 Rust tests passed. The compiled Rust server also passed the real HTTP flow.**
+These results cover the headless-default changes for HumanGrant Protocol 0.1 Draft on
+`feat/headless-discovery`. They are local validation, not a production deployment or release.
+The configured source origin is `https://github.com/LIghtJUNction/humangrant.git`.
+Machine-readable results are in [verification.json](verification.json).
 
 ## Checks actually executed
 
 | Check | Result | Scope |
-|---|---:|---|
-| `tests/test_sql.py` | 68 passed | The migration and SQL statements shipped with the Rust service, executed with SQLite and a controlled clock. Includes scope restrictions, live rights, state transitions, concurrent claims, revocation, and persistent mail limits. |
-| `tests/test_client.py` | 60 passed | The independent Python client, signatures, private files, origin binding, Markdown parsing, controlled polling, CLI entry points, and local demo setup. |
-| `tests/test_smtp.py` | 19 passed | The optional worker with injected fake SMTP transports and temporary databases. Includes definite failure, uncertain DATA outcome, idempotency, crash recovery, and worker locking. No real SMTP connection. |
-| `tests/test_contracts.py` | 12 passed | JSON Schema, OpenAPI operation contracts, state fixtures and phase definitions. This is not HTTP interoperability testing. |
-| `tests/test_docs.py` | 6 passed | Skill checks, references, README prompt completeness, real temporary Git remote handling, synchronization, and CI command declarations. |
-| `tests/test_browser_crypto.py` | 1 passed | The actual JavaScript crypto module under Node Web Crypto; cross-language signature equality, key consistency and state/challenge validation. Not a browser UI test. |
-| `python scripts/check.py` | Passed | 16 Markdown files, 2 skills, 21 OpenAPI operations, 2 SVG button variants; references, schemas and included source paths. |
-| `python scripts/sync_prompt.py --check` | Passed | The complete README copy block exactly matches `prompts/integrate.md`. |
-| Python bytecode compilation | Passed | `clients/*.py`, `examples/*.py`, `scripts/*.py`, `tests/*.py`. |
-| JavaScript syntax checks | Passed | `examples/web/ui.js` and `examples/web/webcrypto.js`. |
-| SVG rendering | Completed and visually inspected | Wordmark and light/dark login buttons rendered with CairoSVG. Text was complete and unclipped in those renders. |
+|---|---|---|
+| `python scripts/check.py` | Passed | 18 Markdown files, 2 skills, 23 OpenAPI operations and 2 SVG button variants; local references and contracts. |
+| `python scripts/sync_prompt.py --check` | Passed | Both README prompt blocks match their canonical sources. |
+| `python -m pytest -q` | 182 passed | Python client, actual SQL rules, schemas, documentation, SMTP worker with fake transports, and JavaScript crypto exercised under Node. |
+| `cargo fmt --check` | Passed | Rust formatting. |
+| `cargo clippy --all-targets -- -D warnings` | Passed | Rust static checks, including test targets. |
+| `cargo test --locked` | 28 passed | Actual Rust protocol and dispatcher tests, including default discovery, configured-origin URL construction, optional UI, signatures and human authorization. |
+| `cargo build` | Passed | Reference Rust binary compiled. A generated `Cargo.lock` records the dependency resolution used here. |
+| `node --check examples/web/ui.js` | Passed | Shared frontend syntax. |
+| `node --check examples/web/webcrypto.js` | Passed | Browser crypto module syntax. |
+| `python scripts/e2e.py --binary target/debug/humangrant` | Passed | Real local HTTP against the compiled Rust server; no substitute server. |
+| `git diff --check` | Passed | Patch whitespace. |
 
-Executed commands:
+The HTTP run checked:
 
-```sh
-python -m pytest -q
-python scripts/check.py
-python scripts/sync_prompt.py --check
-python -m py_compile clients/*.py examples/*.py scripts/*.py tests/*.py
-node --check examples/web/ui.js
-node --check examples/web/webcrypto.js
-```
+- Default root JSON matches `/.well-known/humangrant.json` and the `Discovery` schema; advertised protocol documents are accessible.
+- A forwarded human link requires genuine human proof and explicit consent before credential issuance.
+- Permissions are narrowed; replay, wrong signing identities and unrelated resources are refused; revocation takes effect.
+- A local `.eml` invitation reuses an existing human login while still requiring explicit consent.
+- Expected-human mismatch, cancellation and authenticated refusal are enforced.
+- Concurrent claims issue one credential exactly once.
+- Server logs contain no issued credentials, cookies or recipient address.
 
-The test run had no skipped tests or failures. Module counts and tool versions are also recorded in
-[verification.json](verification.json). No coverage percentage is claimed. Tests do not send mail to
-real recipients or invoke paid services.
+Tests use temporary databases, generated test identities and a local mail spool. No real mail was sent.
+No coverage percentage is claimed. SQL tests exercise the migration and SQL shipped with the service;
+the HTTP tests separately exercise request parsing, cookies, human proof, consent and issuance together.
 
-### What these checks establish
-
-The tested SQLite rules operate on the actual migration and SQL files used by the Rust source.
-They are not a second, replacement authorization server. SQL test setup is not evidence of human
-login verification. The Python and JavaScript tests exercise their actual client implementations
-and a public test-key fixture. The fixture is not a usable production identity.
-
-Both notification paths have Rust dispatcher tests and a real-HTTP test script in source. Neither
-complete path has been executed against the Rust service in this environment. In particular,
-passing SQL tests does not prove that HTTP request parsing, human authentication, cookie handling,
-permission approval and credential issuance work together correctly.
-
-## Attempted but not executed
-
-The following commands were attempted, but the shell reported that `cargo` was not found:
-
-```sh
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-cargo build
-```
-
-The container has no Rust compiler, Cargo, rustfmt or Clippy. Network access could not obtain the
-toolchain or crate dependencies. These are **unexecuted checks**, not passing checks. The Rust
-source has not been formatted by rustfmt. Compilation, formatting corrections and lint fixes
-remain pending; compilation errors may still exist. No `Cargo.lock` was generated.
-
-There are 17 Rust test functions in [tests/protocol.rs](../tests/protocol.rs), covering the actual
-Rust application dispatcher and signed requests. Their presence does not establish that they
-compile or pass.
-
-The command below was also attempted:
-
-```sh
-python scripts/e2e.py --binary target/debug/humangrant
-```
-
-It exited with code 2 and the explicit message:
-
-```text
-UNEXECUTED: Rust binary is missing. Run cargo build; no substitute server will be used.
-```
-
-It did not start a substitute Python server, skip authentication, or report a successful flow.
-The intended real-HTTP test uses public interfaces, genuine signatures, a temporary local spool,
-and generated local test identities. It must be run after the Rust build succeeds.
-
-## Environment used for the successful local checks
+## Environment used
 
 | Component | Version |
 |---|---|
-| Python | 3.13.5 |
-| Python SQLite | 3.46.1 |
-| pytest | 9.0.2 |
-| cryptography | 46.0.4 |
+| Rust | 1.99.0 |
+| Cargo | 1.99.0 |
+| Python | 3.14.8 |
+| Python SQLite | 3.54.0 |
+| Node | 26.12.1 |
+| pytest | 9.1.1 |
+| cryptography | 50.0.2 |
 | PyYAML | 6.0.3 |
 | jsonschema | 4.26.0 |
 | markdown-it-py | 4.2.0 |
-| Node | 22.16.0 |
-| CairoSVG | 2.8.2 |
 
-These results apply to this environment. They do not establish a platform, browser, minimum Rust
-version or third-party AI-product compatibility matrix.
+## Unexecuted or unverified
 
-## Remaining work and unverified behavior
+- Interactive browser behavior and secure cookie behavior in a real browser.
+- Cross-device HTTPS deployment, production operations and real SMTP/inbox delivery.
+- Host-specific account and permission adapters, and installation inside third-party AI clients.
+- The GitHub README copy button, performance and memory measurements, and an independent security audit.
+- Compatibility with the declared minimum Rust version or a wider platform/version matrix.
+- Remote CI, CodeQL and remote review; local checks are the acceptance criteria for this change.
+- Release builds, signing, package publication and deployment.
 
-The following have not been verified or completed:
-
-- Rust formatting, compilation, static checks, the 17 Rust tests, the real HTTP flow and a reviewed
-  dependency lockfile. They are required before calling the reference server runnable or tested.
-- Actual browser interaction, secure cookie behavior in a browser, cross-device HTTPS deployment,
-  and the protected example operating through that deployment.
-- Real SMTP configuration, provider behavior and inbox delivery. Fake transport results and local
-  `.eml` files do not prove delivery. SMTP DATA uncertainty is intentionally not retried automatically.
-- Host-specific identity and permission adapters. The reference implements local registered-key
-  verification and note-resource permissions; it is not a universal adapter for existing products.
-- Installation and execution of either skill inside third-party AI clients. Local format and
-  command checks are not product certification.
-- The copy button on the target GitHub README. The remote repository was empty when inspected,
-  and no source was pushed. Only local parsing and exact block synchronization were checked.
-- Remote CI execution, performance or memory measurement, an independent security audit,
-  production operations, database retention tooling, releases or package publication.
-
-The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) declares the required checks.
-It has not been run remotely. The commands in the README are instructions to execute on a machine
-with the required toolchain, not a claim that the server ran in this container.
+The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) retains the declared validation
+commands. A source push does not establish that any running service has been updated.

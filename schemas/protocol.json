@@ -3,6 +3,52 @@
   "$id": "https://github.com/LIghtJUNction/humangrant/blob/main/schemas/protocol.json",
   "title": "HumanGrant Protocol 0.1 Draft field definitions",
   "$defs": {
+    "Discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": "HumanGrant Protocol 0.1 Draft"
+        },
+        "origin": {
+          "type": "string",
+          "format": "uri"
+        },
+        "request_endpoint": {
+          "type": "string",
+          "format": "uri"
+        },
+        "session_endpoint": {
+          "type": "string",
+          "format": "uri"
+        },
+        "specification_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "openapi_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "schema_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "agent_ui": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "origin",
+        "request_endpoint",
+        "session_endpoint",
+        "specification_url",
+        "openapi_url",
+        "schema_url",
+        "agent_ui"
+      ]
+    },
     "Permission": {
       "type": "object",
       "additionalProperties": false,

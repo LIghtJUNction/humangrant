@@ -31,6 +31,32 @@ mechanism needs its own documented host-bound verification endpoint or a fully s
 do not silently rename a cookie to a signature and claim wire compatibility. The public agent-facing
 request/state/claim/session API can remain this draft while host login mechanics stay host-specific.
 
+## Default to headless APIs and public discovery
+
+No visible application button is required. The reference config's `agent_ui` boolean defaults to
+`false`; `GET /` returns public discovery JSON. `GET /.well-known/humangrant.json` always returns that
+JSON, including when `agent_ui: true` enables the optional root demo UI. Serve discovery to all clients
+without User-Agent filtering. Headless operation keeps the human consent, refusal, and revocation pages.
+
+Discovery has these fields:
+
+| Field | Meaning |
+| --- | --- |
+| `protocol_version` | `HumanGrant Protocol 0.1 Draft` |
+| `origin` | Configured canonical public origin |
+| `request_endpoint` | Absolute URL for `/v1/requests` |
+| `session_endpoint` | Absolute URL for `/v1/session` |
+| `specification_url` | Absolute URL for `/spec/v0.1.md` |
+| `openapi_url` | Absolute URL for `/openapi.yaml` |
+| `schema_url` | Absolute URL for `/schemas/protocol.json` |
+| `agent_ui` | Whether the optional root demo UI is enabled |
+
+Build all endpoint and document URLs from the configured origin, not request Host or forwarding headers.
+An AI client must independently trust that origin and check the returned origin and URLs against it
+before sending signed requests or credentials. Discovery is metadata, never authorization; it neither
+establishes a human login nor grants access. Implement the signed request, status, claim and session
+APIs regardless of whether a visible button is present.
+
 ## Keep enforcement in the target business service
 
 A grant stores grantor, actor/public-key ID, original request, client, service, pairs, lifetime, revoke
@@ -55,11 +81,13 @@ The separate SQL tests intentionally examine database rules only, not authentica
 
 ## Map the UI without making it the authority
 
-Use [the button SVG](../assets/continue-with-human-beings.svg) as an accessible visual asset. An image
-alone is not a working sign-in action. The demo button in [ui.js](../examples/web/ui.js) creates an
-independent agent identity, calls the request API, then reads actual Markdown. The human link opens a
-separate same-origin review page. It shows the requester key, untrusted purpose, exact service and
-permissions, current human account and expiry. All choices start unchecked; approval is a separate POST.
+If a visible entry point is wanted, use [the button SVG](../assets/continue-with-human-beings.svg)
+for an optional **Continue with human beings** button with an accessible name. An image alone is not
+a working sign-in action. The optional root demo button in [ui.js](../examples/web/ui.js) creates an
+independent agent identity, calls the request API, then reads actual Markdown. Headless clients call
+the same API directly. In either case, the human link opens a separate same-origin review page.
+It shows the requester key, untrusted purpose, exact service and permissions, current human account
+and expiry. All choices start unchecked; approval is a separate POST.
 A logged-in visitor sees these choices immediately, including on a new request. Reuse does not
 extend the login lifetime. A changed or expired account must not submit the old confirmation.
 

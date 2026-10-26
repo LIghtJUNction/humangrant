@@ -179,6 +179,11 @@ impl App {
             if let Some((mime, text)) = asset {
                 return Ok(HttpOutput::text(200, mime, text));
             }
+            if request.path == "/.well-known/humangrant.json"
+                || (request.path == "/" && !self.config.agent_ui)
+            {
+                return self.discovery();
+            }
             if request.path == "/" {
                 return HttpOutput::page(
                     json!({"view":"agent","origin":self.config.public_origin,
@@ -191,6 +196,23 @@ impl App {
             return self.signed(request);
         }
         self.browser(request)
+    }
+
+    fn discovery(&self) -> Result<HttpOutput> {
+        let origin = &self.config.public_origin;
+        HttpOutput::json(
+            200,
+            json!({
+                "protocol_version": crate::model::PROTOCOL,
+                "origin": origin,
+                "request_endpoint": format!("{origin}/v1/requests"),
+                "session_endpoint": format!("{origin}/v1/session"),
+                "specification_url": format!("{origin}/spec/v0.1.md"),
+                "openapi_url": format!("{origin}/openapi.yaml"),
+                "schema_url": format!("{origin}/schemas/protocol.json"),
+                "agent_ui": self.config.agent_ui,
+            }),
+        )
     }
 
     fn signed(&mut self, request: &HttpInput) -> Result<HttpOutput> {

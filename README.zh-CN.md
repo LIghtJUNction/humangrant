@@ -18,6 +18,9 @@
 
 ## 让 AI 为你的项目接入 HumanGrant
 
+HumanGrant 默认通过无头 API 和公开发现接口接入，无需在应用中添加可见按钮。
+下方按钮是可选的界面示例；供人类确认授权、拒绝和撤销的页面仍然保留。
+
 <p align="center">
   <a href="skills/humangrant-integrate/SKILL.md">
     <picture>
@@ -55,7 +58,11 @@ python examples/setup_demo.py --dir .state
 cargo run -- serve .state/config.json
 ```
 
-打开 <http://127.0.0.1:8787>。按[完整示例](examples/README.md)连接 AI 并读取一条笔记，远程运行请看[部署文档](docs/deployment.md)。
+服务默认以无头模式启动：<http://127.0.0.1:8787> 返回发现 JSON，不显示应用按钮。
+<http://127.0.0.1:8787/.well-known/humangrant.json> 始终提供公开发现信息；即使在
+`.state/config.json` 中设置 `"agent_ui": true` 启用可选的根路径演示界面，该接口也保持可用。默认值为 `false`。
+AI 客户端必须独立确认所配置来源可信；发现信息只是元数据，不代表授权。
+按[完整示例](examples/README.md)连接 AI 并读取一条笔记，远程运行请看[部署文档](docs/deployment.md)。
 
 ## Agent 技能
 

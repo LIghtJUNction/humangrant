@@ -15,6 +15,37 @@ servers:
 - url: http://127.0.0.1:8787
   description: Explicit loopback development mode only. Configure HTTPS for a real deployment.
 paths:
+  /.well-known/humangrant.json:
+    get:
+      summary: Discover the service without authentication or a visible application button
+      operationId: get_discovery
+      security: []
+      responses:
+        '200':
+          description: Public metadata; does not authorize access
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/protocol.json#/$defs/Discovery
+        default:
+          $ref: '#/components/responses/Error'
+  /:
+    get:
+      summary: Read discovery by default, or the explicitly enabled reference agent UI
+      operationId: get_root
+      security: []
+      responses:
+        '200':
+          description: JSON by default; HTML only when agent_ui is true in server configuration
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/protocol.json#/$defs/Discovery
+            text/html:
+              schema:
+                type: string
+        default:
+          $ref: '#/components/responses/Error'
   /v1/requests:
     post:
       summary: Create one immutable, key-bound authorization request

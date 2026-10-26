@@ -50,7 +50,7 @@ def test_unknown_create_fields_rejected():
 def test_openapi_has_all_required_public_paths():
     api = yaml.safe_load((ROOT/'openapi.yaml').read_text())
     assert api['openapi']=='3.1.0'
-    assert {'/v1/requests','/v1/requests/{id}/status.md','/v1/requests/{id}',
+    assert {'/','/.well-known/humangrant.json','/v1/requests','/v1/requests/{id}/status.md','/v1/requests/{id}',
         '/v1/requests/{id}/claim','/v1/requests/{id}/cancel',
         '/v1/requests/{id}/email','/human/{link}','/human/{link}/begin',
         '/human/{link}/verify','/human/{link}/approve','/human/{link}/reject',
@@ -58,6 +58,10 @@ def test_openapi_has_all_required_public_paths():
         '/v1/notes/{id}'}.issubset(api['paths'])
     content = api['paths']['/v1/requests/{id}/status.md']['get']['responses']['200']['content']
     assert 'text/markdown' in content
+    for path in ('/', '/.well-known/humangrant.json'):
+        operation = api['paths'][path]['get']
+        assert operation['security'] == []
+        assert operation['responses']['200']['content']['application/json']['schema']['$ref'].endswith('/Discovery')
 
 
 def test_one_state_mapping_source_contains_three_visible_states():

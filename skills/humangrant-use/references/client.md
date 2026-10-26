@@ -5,6 +5,20 @@ Use HumanGrant Protocol 0.1 Draft. There is no published `humangrant` package or
 These commands run from a matching source checkout. An installed skill alone does not install the CLI.
 Read that checkout's `docs/verification.md` before making compatibility claims.
 
+Configure an independently trusted canonical service origin before discovering endpoints. On that
+origin, `GET /.well-known/humangrant.json` always returns public discovery; `GET /` returns it by default.
+No visible application button is required. The reference's `agent_ui` defaults to `false`; enabling it
+adds an optional root demo UI while keeping the well-known endpoint and human consent, refusal and
+revocation pages available. Discovery is public without User-Agent filtering.
+
+Discovery fields are `protocol_version`, `origin`, `request_endpoint`, `session_endpoint`,
+`specification_url`, `openapi_url`, `schema_url`, and `agent_ui`. Endpoint/document fields are absolute
+URLs built from the configured origin. Check the protocol version and verify the returned origin and
+URLs against the independently trusted service origin before using them. Do not follow a discovery URL
+to a new origin with signatures or credentials. Discovery is metadata, never authorization, and
+`agent_ui` does not establish identity or permission. The commands below still require a trusted
+`--origin`; discovering metadata does not replace that configuration or the signed request flow.
+
 Create a fresh local identity only when there is no suitable existing identity:
 
 ```sh
