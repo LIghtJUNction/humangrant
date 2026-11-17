@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate local identities and a loopback-only configuration. Never send email."""
+"""Generate local identities and a loopback-only login-link demonstration."""
 from __future__ import annotations
 import argparse
 import json
@@ -22,14 +22,13 @@ def setup(destination: Path, port: int = 8787) -> Path:
     config = {
         "public_origin": f"http://127.0.0.1:{port}", "listen": f"127.0.0.1:{port}",
         "database": str(destination / "humangrant.db"), "local_development": True,
-        "client_ids": ["example-cli", "example-browser"],
+        "client_ids": ["example-cli"],
         "accounts": [{"id": name, "public_key": identities[name].public_key} for name in ("alice", "bob")],
         "resources": [
             {"id": "alice-note", "owner_id": "alice", "content": "Alice's private note.", "permissions": ["notes.read", "notes.write"]},
             {"id": "alice-other-note", "owner_id": "alice", "content": "Not included in the request.", "permissions": ["notes.read", "notes.write"]},
             {"id": "bob-note", "owner_id": "bob", "content": "Bob's private note.", "permissions": ["notes.read", "notes.write"]},
         ],
-        "mail": {"mode": "local", "spool": str(destination / "outbox")},
     }
     secure_json(destination / "config.json", config)
     return destination / "config.json"
@@ -43,6 +42,6 @@ if __name__ == "__main__":
     if not 1024 <= args.port <= 65535:
         parser.error("Choose a port between 1024 and 65535")
     try:
-        print(json.dumps({"config": str(setup(args.dir, args.port)), "mail": "local-only; no real mail sent"}))
+        print(json.dumps({"config": str(setup(args.dir, args.port))}))
     except (OSError, ValueError) as error:
         parser.exit(1, str(error) + "\n")

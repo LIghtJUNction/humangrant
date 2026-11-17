@@ -278,11 +278,6 @@ pub fn state_object(
 ) -> Result<State> {
     let (status, status_text) = display_state(&request.phase)?;
     let human_url = format!("{}/human/{}", config.public_origin, request.human_link);
-    let last_mail: Option<i64> = db.query_row(
-        "SELECT max(requested_at) FROM mail_operations WHERE request_id=?1",
-        params![request.id],
-        |r| r.get(0),
-    )?;
     let grant=db.query_row("SELECT g.id,g.expires_at,g.revoked_at,EXISTS(SELECT 1 FROM sessions s WHERE s.grant_id=g.id),
         (SELECT enabled FROM accounts WHERE id=g.human_id) FROM grants g WHERE g.request_id=?1",
         params![request.id],|r| Ok((r.get::<_,String>(0)?,r.get::<_,i64>(1)?,r.get::<_,Option<i64>>(2)?,r.get::<_,bool>(3)?,r.get::<_,bool>(4)?))).optional()?;
@@ -333,10 +328,8 @@ pub fn state_object(
         phase:request.phase.clone(),created_at:request.created_at,status_updated_at:request.status_updated_at,
         checked_at:now,expires_at:request.expires_at,poll_after_seconds:if terminal {0} else {request.poll_interval},
         human_authorization_url:human_url.clone(),requested_permissions:request.permissions.clone(),
-        email_request_status:if config.mail.mode=="disabled" {"unavailable"} else if last_mail.is_some() {"accepted"} else {"not_requested"}.into(),
-        email_retry_after_seconds:last_mail.map(|last|(last+config.mail.recipient_cooldown_seconds-now).max(0)).unwrap_or(0),
         target_service:request.target_service.clone(),client_id:request.client_id.clone(),
-        forwarding_prompt:format!("Please open {human_url} on your own device. Verify the requesting key and the exact permissions. Sign in, then approve only the access you choose, or refuse. Do not send your password, cookie, or private key to the AI."),
+        forwarding_prompt:format!("Open {human_url} to sign in for this AI. Review the account and requested access, then confirm. Keep your password, cookies, and private key on your own device."),
         grant_id,grant_status,grant_expires_at,
     })
 }

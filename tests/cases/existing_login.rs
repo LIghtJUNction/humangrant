@@ -287,31 +287,26 @@ fn host_login_needs_only_consent_and_is_not_copied_into_reference_login() {
             Ok(())
         })
         .unwrap();
-    assert_eq!(h.approve(&reviewed).status, 200);
-    let grants = h.browser("GET", "/human/grants", &reviewed.cookie, "", json!({}));
-    assert_eq!(grants.status, 200);
-    let grant_id = text(&page_data(&grants)["grants"][0], "grant_id");
-    let csrf = text(&page_data(&grants), "csrf");
+    let approved = h.approve(&reviewed);
+    assert_eq!(approved.status, 200);
+    let grant_id = text(&value(&approved), "grant_id");
+
+    let second = h.create(None);
+    let (second_review, data, _) = review(&mut h, &second, &reviewed.cookie);
+    assert_eq!(data["human_id"], "alice");
     *account.lock().unwrap() = None;
-    assert_eq!(
-        h.browser(
-            "POST",
-            &format!("/human/grants/{grant_id}/revoke"),
-            &reviewed.cookie,
-            &csrf,
-            json!({})
-        )
-        .status,
-        403
-    );
+    assert_eq!(h.approve(&second_review).status, 403);
+    assert_eq!(phase(&mut h, &second), "waiting_human");
     *account.lock().unwrap() = Some("alice".into());
+    assert_eq!(h.approve(&second_review).status, 200);
+    assert_eq!(phase(&mut h, &second), "approved");
     assert_eq!(
-        h.browser(
+        h.send(
+            2,
             "POST",
-            &format!("/human/grants/{grant_id}/revoke"),
-            &reviewed.cookie,
-            &csrf,
-            json!({})
+            &format!("/v1/human/grants/{grant_id}/revoke"),
+            json!({}),
+            "anonymous",
         )
         .status,
         200

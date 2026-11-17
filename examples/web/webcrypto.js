@@ -53,10 +53,10 @@ export function parseMarkdown(text) {
     if (Object.hasOwn(state, match[1])) throw new Error("Duplicate state field.");
     state[match[1]] = JSON.parse(match[2]);
   }
-  const required = ["protocol_version", "request_id", "status", "status_text", "phase", "created_at", "status_updated_at", "checked_at", "expires_at", "poll_after_seconds", "human_authorization_url", "requested_permissions", "email_request_status", "email_retry_after_seconds"];
+  const required = ["protocol_version", "request_id", "status", "status_text", "phase", "created_at", "status_updated_at", "checked_at", "expires_at", "poll_after_seconds", "human_authorization_url", "requested_permissions"];
   const phases = ["waiting_human", "authenticating_human", "awaiting_consent", "approved", "succeeded", "rejected", "cancelled", "expired"];
   if (required.some(key => !Object.hasOwn(state,key)) || state.protocol_version !== PROTOCOL || !phases.includes(state.phase)) throw new Error("Unknown state representation.");
-  for (const field of ["created_at", "status_updated_at", "checked_at", "expires_at", "poll_after_seconds", "email_retry_after_seconds"]) {
+  for (const field of ["created_at", "status_updated_at", "checked_at", "expires_at", "poll_after_seconds"]) {
     if (!Number.isInteger(state[field]) || state[field] < 0) throw new Error("Invalid state time.");
   }
   return state;

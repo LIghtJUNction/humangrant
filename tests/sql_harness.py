@@ -82,19 +82,3 @@ def effective(db: sqlite3.Connection, actor: str = "agent-A", token: str = "rest
     rows = sql(db, "effective_permissions", {"actor": actor,
         "token_hash": b64u(hashlib.sha256(token.encode()).digest()), "service": service})
     return {(row["action"], row["resource"]) for row in rows}
-
-
-def mail_allowed(db: sqlite3.Connection, *, recipient: str = "mail-hash", actor: str = "agent-A", source: str = "source-hash", **limits: int) -> bool:
-    values = {"recipient_hash": recipient, "actor": actor, "source": source,
-        "cooldown": 60, "recipient_hour": 3, "recipient_day": 5, "actor_hour": 10,
-        "source_hour": 10, "service_hour": 100, "service_day": 500}
-    values.update(limits)
-    return bool(sql(db, "mail_allow", values).fetchone()[0])
-
-
-def enqueue(db: sqlite3.Connection, request_id: str = "r1", operation: str = "op1", *,
-            actor: str = "agent-A", recipient: str = "mail-hash", source: str = "source-hash", state: str = "queued", key: str | None = None) -> None:
-    sql(db, "mail_enqueue", {"id": operation, "request": request_id, "actor": actor,
-        "key": key or operation, "recipient_hash": recipient, "source": source,
-        "recipient": "recipient@example.test" if state != "suppressed" else None,
-        "state": state, "action_token": "action-" + operation, "subject": "HumanGrant permission request", "body": "Fixed local test content"})

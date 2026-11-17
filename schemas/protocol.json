@@ -101,27 +101,6 @@
         "expires_at"
       ]
     },
-    "EmailRequest": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "email": {
-          "type": "string",
-          "minLength": 3,
-          "maxLength": 254,
-          "pattern": "^[^\\r\\n]+@[^\\r\\n]+$",
-          "description": "Common ASCII mailbox syntax only; see spec/v0.1.md. Trimmed and lowercased for limiting."
-        },
-        "idempotency_key": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{1,64}$"
-        }
-      },
-      "required": [
-        "email",
-        "idempotency_key"
-      ]
-    },
     "Verification": {
       "type": "object",
       "additionalProperties": false,
@@ -234,18 +213,6 @@
           "maxItems": 16,
           "uniqueItems": true
         },
-        "email_request_status": {
-          "type": "string",
-          "enum": [
-            "not_requested",
-            "accepted",
-            "unavailable"
-          ]
-        },
-        "email_retry_after_seconds": {
-          "type": "integer",
-          "minimum": 0
-        },
         "target_service": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_-]{1,64}$"
@@ -307,8 +274,6 @@
         "poll_after_seconds",
         "human_authorization_url",
         "requested_permissions",
-        "email_request_status",
-        "email_retry_after_seconds",
         "target_service",
         "client_id",
         "forwarding_prompt",
@@ -364,32 +329,6 @@
         "error",
         "message",
         "retry_after_seconds"
-      ]
-    },
-    "EmailAccepted": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "operation_id": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{1,64}$"
-        },
-        "email_request_status": {
-          "const": "accepted"
-        },
-        "email_retry_after_seconds": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "message": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "operation_id",
-        "email_request_status",
-        "email_retry_after_seconds",
-        "message"
       ]
     },
     "Challenge": {
@@ -654,6 +593,92 @@
       "required": [
         "context",
         "resource"
+      ]
+    },
+    "Discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "const": "HumanGrant Protocol 0.1 Draft"
+        },
+        "flow": {
+          "const": "human_login_link"
+        },
+        "origin": {
+          "type": "string",
+          "format": "uri"
+        },
+        "authentication": {
+          "const": "ed25519-http-signatures"
+        },
+        "browser_entrypoint": {
+          "const": false
+        },
+        "poll_after_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "request_ttl_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 1800
+        },
+        "agent_instructions_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "request_endpoint": {
+          "type": "string",
+          "format": "uri"
+        },
+        "session_endpoint": {
+          "type": "string",
+          "format": "uri"
+        },
+        "schema_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "openapi_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "status_endpoint_template": {
+          "type": "string",
+          "pattern": "^https?://[^\\s]+\\{request_id\\}[^\\s]*$"
+        },
+        "status_markdown_endpoint_template": {
+          "type": "string",
+          "pattern": "^https?://[^\\s]+\\{request_id\\}[^\\s]*$"
+        },
+        "claim_endpoint_template": {
+          "type": "string",
+          "pattern": "^https?://[^\\s]+\\{request_id\\}[^\\s]*$"
+        },
+        "cancel_endpoint_template": {
+          "type": "string",
+          "pattern": "^https?://[^\\s]+\\{request_id\\}[^\\s]*$"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "flow",
+        "origin",
+        "authentication",
+        "browser_entrypoint",
+        "poll_after_seconds",
+        "request_ttl_seconds",
+        "agent_instructions_url",
+        "request_endpoint",
+        "session_endpoint",
+        "schema_url",
+        "openapi_url",
+        "status_endpoint_template",
+        "status_markdown_endpoint_template",
+        "claim_endpoint_template",
+        "cancel_endpoint_template"
       ]
     }
   }

@@ -1,25 +1,11 @@
-# Identity and example UI
+# A quiet login handoff
 
-The wordmark pairs a solid human outline with a dashed AI outline. The compact symbol repeats
-that pairing as two connected circles. Both are local SVG source assets.
+HumanGrant has one visible task: complete the sign-in requested by an agent. The normal home page has a wordmark and a short explanation. It has no login button, request form, developer console or account dashboard.
 
-`README.md` is English; `README.zh-CN.md` is Chinese. Both use the same wordmark and button assets.
-Six local SVG badges link to the protocol, Rust manifest, SQLite migration, OpenAPI, skills, and
-license. The CI badge reads the actual `main` workflow status from GitHub.
-One-line integration prompts are synchronized by `python scripts/sync_prompt.py`.
+Agents discover the protocol through `/.well-known/humangrant.json`, `/agent.md`, an HTTP `Link` header, and a `<link rel="humangrant">` element in the document head. These public resources work without JavaScript. Their absence from the visible interface is a presentation choice; authentication still depends on verified signatures and account evidence.
 
-Use [the light button](../assets/continue-with-human-beings.svg) or
-[the dark button](../assets/continue-with-human-beings-dark.svg). Keep the text exactly:
-**Continue with human beings**. SVG viewBox dimensions are 368 × 64; render at proportional sizes.
-The actual interactive HTML button must have that accessible name. Decorative inner symbols have
-empty alt text. A static image does not initiate a request or prove that integration is complete.
+A human link opens a focused handoff page showing the service, requester, purpose, account and requested access. An existing valid login leads directly to confirmation. Only requested permissions currently grantable by that account start selected; unavailable pairs stay disabled. Signing in verifies the account; the final confirmation authorizes the displayed selection. Loading a page never submits either operation.
 
-The [reference UI](../examples/web/index.html) uses local CSS and JavaScript, system fonts, a quiet
-light/dark palette, ample space, keyboard focus indicators, and reduced-motion rules. It has no
-external font download, analytics script, UI framework or CDN dependency. Request text is inserted
-with textContent, not interpreted as HTML. CSP restricts scripts and connections to the service origin.
+The interface uses system fonts, generous spacing, restrained light and dark colors, keyboard focus indicators, and reduced-motion rules. CSS, JavaScript and SVG assets are local. Request data is inserted as text. The content security policy restricts scripts and connections to the service origin.
 
-The human page separates request details, identity proof, and explicit scope selection. Permissions
-start unchecked. The AI example does not store human keys or cookies and uses an independent key.
-The Node tests cover the browser crypto module, not visual layout, accessibility certification or a
-real browser support matrix. Full browser interaction remains unverified in this environment.
+The reference key-file and local-signature controls support development. Integrations use the site's existing account login and keep the same compact confirmation page. The agent never receives a human password, cookie or private key.

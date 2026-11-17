@@ -3,8 +3,8 @@ use crate::config::Config;
 use crate::db::{self, Clock, Store};
 use crate::error::{Error, Result};
 use crate::human::{self, BrowserWrite};
-use crate::model::{Approval, CreateRequest, EmailRequest, Empty, NoteUpdate, Verification};
-use crate::{crypto, mail, requests};
+use crate::model::{Approval, CreateRequest, Empty, NoteUpdate, Verification};
+use crate::{crypto, requests};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -80,6 +80,10 @@ impl HttpOutput {
             .replace('>', "\\u003e");
         let text = include_str!("../examples/web/index.html").replace("__HG_DATA__", &escaped);
         let mut response = Self::text(200, "text/html; charset=utf-8", &text);
+        response.headers.insert(
+            "Link".into(),
+            "</.well-known/humangrant.json>; rel=\"service-desc\"; type=\"application/json\", </agent.md>; rel=\"alternate\"; type=\"text/markdown\"".into(),
+        );
         if let Some(cookie) = cookie {
             response.headers.insert("Set-Cookie".into(), cookie);
         }
@@ -170,18 +174,21 @@ impl App {
                     include_str!("../examples/web/webcrypto.js"),
                 )),
                 "/assets/mark.svg" => Some(("image/svg+xml", include_str!("../assets/mark.svg"))),
-                "/assets/continue-with-human-beings.svg" => Some((
-                    "image/svg+xml",
-                    include_str!("../assets/continue-with-human-beings.svg"),
+                "/agent.md" => Some((
+                    "text/markdown; charset=utf-8",
+                    include_str!("../docs/agent.md"),
                 )),
                 _ => None,
             };
             if let Some((mime, text)) = asset {
                 return Ok(HttpOutput::text(200, mime, text));
             }
+            if request.path == "/.well-known/humangrant.json" {
+                return self.discovery();
+            }
             if request.path == "/" {
                 return HttpOutput::page(
-                    json!({"view":"agent","origin":self.config.public_origin,
+                    json!({"view":"home","origin":self.config.public_origin,
                     "protocol_version":crate::model::PROTOCOL}),
                     None,
                 );
@@ -191,6 +198,31 @@ impl App {
             return self.signed(request);
         }
         self.browser(request)
+    }
+
+    fn discovery(&self) -> Result<HttpOutput> {
+        let origin = &self.config.public_origin;
+        HttpOutput::json(
+            200,
+            json!({
+                "protocol_version": crate::model::PROTOCOL,
+                "flow": "human_login_link",
+                "origin": origin,
+                "agent_instructions_url": format!("{origin}/agent.md"),
+                "request_endpoint": format!("{origin}/v1/requests"),
+                "status_endpoint_template": format!("{origin}/v1/requests/{{request_id}}"),
+                "status_markdown_endpoint_template": format!("{origin}/v1/requests/{{request_id}}/status.md"),
+                "claim_endpoint_template": format!("{origin}/v1/requests/{{request_id}}/claim"),
+                "cancel_endpoint_template": format!("{origin}/v1/requests/{{request_id}}/cancel"),
+                "session_endpoint": format!("{origin}/v1/session"),
+                "authentication": "ed25519-http-signatures",
+                "browser_entrypoint": false,
+                "poll_after_seconds": self.config.poll_interval_seconds,
+                "request_ttl_seconds": self.config.request_ttl_seconds,
+                "schema_url": format!("{origin}/schemas/protocol.json"),
+                "openapi_url": format!("{origin}/openapi.yaml"),
+            }),
+        )
     }
 
     fn signed(&mut self, request: &HttpInput) -> Result<HttpOutput> {
@@ -242,20 +274,6 @@ impl App {
                 let _: Empty = request.json()?;
                 HttpOutput::json(200, requests::cancel(&mut self.store, id, &proof.actor_id)?)
             }
-            ("POST", ["v1", "requests", id, "email"]) => {
-                let input: EmailRequest = request.json()?;
-                HttpOutput::json(
-                    202,
-                    mail::invite(
-                        &mut self.store,
-                        &self.config,
-                        &proof,
-                        id,
-                        &input,
-                        &request.source,
-                    )?,
-                )
-            }
             ("GET", ["v1", "session"]) => {
                 let value = self
                     .store
@@ -301,43 +319,26 @@ impl App {
         let origin = request.header("origin");
         let csrf = request.header("x-hg-csrf");
         match (request.method.as_str(), parts.as_slice()) {
-            ("GET", ["human", "grants"]) => HttpOutput::page(
-                human::grants_page(
-                    &mut self.store,
-                    &self.config,
-                    self.authenticator.as_ref(),
-                    cookie,
-                )?,
-                None,
-            ),
-            ("POST", ["human", "grants", id, "revoke"]) => {
-                let _: Empty = request.json()?;
-                HttpOutput::json(
-                    200,
-                    human::revoke(
-                        &mut self.store,
-                        &self.config,
-                        self.authenticator.as_ref(),
-                        id,
-                        &BrowserWrite {
-                            link: "",
-                            cookie,
-                            origin,
-                            csrf,
-                        },
-                    )?,
-                )
-            }
             ("GET", ["human", link]) => {
-                let (page, new_cookie) = human::page(
+                match human::page(
                     &mut self.store,
                     &self.config,
                     self.authenticator.as_ref(),
                     link,
                     cookie,
                     &request.source,
-                )?;
-                HttpOutput::page(page, new_cookie)
+                ) {
+                    Ok((page, new_cookie)) => HttpOutput::page(page, new_cookie),
+                    Err(error) if error.status == 404 => {
+                        let mut response = HttpOutput::page(
+                            json!({"view":"invalid","origin":self.config.public_origin}),
+                            None,
+                        )?;
+                        response.status = 404;
+                        Ok(response)
+                    }
+                    Err(error) => Err(error),
+                }
             }
             ("POST", ["human", link, "begin"]) => {
                 let _: Empty = request.json()?;
@@ -408,31 +409,6 @@ impl App {
                         self.authenticator.as_ref(),
                         &write,
                         None,
-                    )?,
-                )
-            }
-            ("GET", ["invite", token]) => {
-                let (page, new_cookie) = human::invite_page(
-                    &mut self.store,
-                    &self.config,
-                    token,
-                    cookie,
-                    &request.source,
-                )?;
-                HttpOutput::page(page, new_cookie)
-            }
-            ("POST", ["invite", token, action]) if ["reject", "block"].contains(action) => {
-                let _: Empty = request.json()?;
-                HttpOutput::json(
-                    200,
-                    human::refuse_mail(
-                        &mut self.store,
-                        &self.config,
-                        token,
-                        cookie,
-                        origin,
-                        csrf,
-                        *action == "block",
                     )?,
                 )
             }

@@ -112,21 +112,15 @@ def check(root: Path = ROOT) -> dict[str,int]:
             parameters = {p['name'] for p in operation.get('parameters',[]) if p.get('in')=='path'}
             require(parameters==set(re.findall(r'{([^}]+)}',route)),f'Path parameters inconsistent: {method} {route}')
     require(len(operation_ids)==len(set(operation_ids)),'Duplicate OpenAPI operationId')
-    for name in ('continue-with-human-beings.svg','continue-with-human-beings-dark.svg'):
-        asset = ET.fromstring((root/'assets'/name).read_text())
-        texts = [node.text for node in asset.iter() if node.tag.endswith('}text')]
-        require('Continue with human beings' in texts,f'{name}: fixed visible button label is missing')
-        require(asset.attrib.get('viewBox')=='0 0 368 64',f'{name}: unexpected dimensions')
     for filename, heading, alternate in (
         ('README.md', 'Add to your project', 'README.zh-CN.md'),
         ('README.zh-CN.md', '让 AI 为你的项目接入 HumanGrant', 'README.md'),
     ):
         readme = (root/filename).read_text(encoding='utf-8')
         require(heading in readme[:4000],f'{filename}: integration heading must be at the top')
-        require('assets/continue-with-human-beings.svg' in readme[:4000],f'{filename}: show the button')
+        require('/.well-known/humangrant.json' in readme,f'{filename}: document discovery')
+        require('continue-with-human-beings' not in readme,f'{filename}: remove the visible login button')
         require(f'href="{alternate}"' in readme[:1000],f'{filename}: language switch missing')
-        for name in ('protocol','rust','sqlite','openapi','skills','license'):
-            require(f'assets/badges/{name}.svg' in readme,f'{filename}: missing {name} badge')
         for image in re.findall(r'<img[^>]+src="(https://[^\"]+)"',readme):
             require(image=='https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml/badge.svg?branch=main',
                     f'{filename}: external badges must use the actual CI workflow')
@@ -144,7 +138,7 @@ def check(root: Path = ROOT) -> dict[str,int]:
         text=path.read_text()
         for relative in re.findall(r'include_str!\("([^"]+)"\)',text):
             local_reference(path,relative,root)
-    return {'markdown_files':count,'skills':2,'openapi_operations':len(operation_ids),'button_variants':2}
+    return {'markdown_files':count,'skills':2,'openapi_operations':len(operation_ids)}
 
 
 if __name__=='__main__':

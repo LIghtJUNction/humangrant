@@ -228,7 +228,7 @@ def test_claim_output_is_private_and_does_not_return_token(tmp_path):
         load_session(client, path)
 
 
-@pytest.mark.parametrize('command', ['keygen','public','request','status','email','claim','cancel','session','read','write','grants','revoke','sign-challenge'])
+@pytest.mark.parametrize('command', ['discover','keygen','public','request','status','claim','cancel','session','read','write','grants','revoke','sign-challenge'])
 def test_documented_cli_commands_exist(command):
     result = subprocess.run([sys.executable, str(ROOT/'clients/humangrant.py'), command, '--help'], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
@@ -240,7 +240,8 @@ def test_example_setup_uses_real_keys_and_refuses_overwrite(tmp_path):
     first = subprocess.run(cmd, capture_output=True, text=True)
     assert first.returncode == 0, first.stderr
     config = json.loads((folder/'config.json').read_text())
-    assert config['mail']['mode'] == 'local'
+    assert 'mail' not in config
+    assert config['client_ids'] == ['example-cli']
     assert Identity.load(folder/'alice.key.json').public_key == config['accounts'][0]['public_key']
     before = (folder/'alice.key.json').read_bytes()
     assert subprocess.run(cmd, capture_output=True).returncode != 0

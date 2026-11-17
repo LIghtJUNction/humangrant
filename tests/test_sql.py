@@ -5,7 +5,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from sql_harness import Clock, ROOT, approve, claim, connect, consent_phase, create, effective, enqueue, initialize, mail_allowed, sql
+from sql_harness import Clock, ROOT, approve, claim, connect, consent_phase, create, effective, initialize, sql
 
 
 @pytest.fixture
@@ -332,119 +332,7 @@ def test_approve_waiting_for_lock_observes_expiry(database):
         assert not future.result(10)
 
 
-def test_email_cooldown_is_cross_request_and_persistent(database):
-    db, clock, path = database
-    create(db, clock)
-    create(db, clock, "r2")
-    assert mail_allowed(db)
-    enqueue(db)
-    assert not mail_allowed(db)
-    again = connect(path, clock)
-    try:
-        assert not mail_allowed(again)
-        clock.advance(59)
-        assert not mail_allowed(again)
-        clock.advance()
-        assert mail_allowed(again)
-        enqueue(again, "r2", "op2")
-    finally:
-        again.close()
-    assert not mail_allowed(db)
-
-
-def test_email_recipient_hour_and_day_limits(database):
-    db, clock, _ = database
-    create(db, clock)
-    for number in range(3):
-        assert mail_allowed(db)
-        enqueue(db, operation=f"op{number}")
-        clock.advance(60)
-    assert not mail_allowed(db)
-    clock.advance(3600)
-    for number in range(3,5):
-        assert mail_allowed(db)
-        enqueue(db, operation=f"op{number}")
-        clock.advance(60)
-    clock.advance(3600)
-    assert not mail_allowed(db)
-
-
-@pytest.mark.parametrize("limit_name,limit", [("actor_hour",10),("source_hour",10),("service_hour",3),("service_day",3)])
-def test_actor_source_and_service_mail_limits(database, limit_name, limit):
-    db, clock, _ = database
-    create(db, clock)
-    limits={"recipient_hour":100,"recipient_day":100,"actor_hour":100,"source_hour":100,"service_hour":100,"service_day":100,limit_name:limit}
-    for number in range(limit):
-        recipient=f"recipient-{number}"
-        assert mail_allowed(db,recipient=recipient,**limits)
-        enqueue(db,operation=f"op{number}",recipient=recipient)
-    assert not mail_allowed(db,recipient="new-mailbox",**limits)
-
-
-def test_mail_operation_is_idempotently_reserved(database):
-    db, clock, _ = database
-    create(db, clock)
-    enqueue(db,operation="op1",key="same-operation")
-    with pytest.raises(sqlite3.IntegrityError):
-        enqueue(db,operation="op2",key="same-operation")
-    assert db.execute("SELECT count(*) FROM mail_operations").fetchone()[0] == 1
-
-
-@pytest.mark.parametrize("state", ["failed","delivery_unknown","transport_accepted","local_spooled"])
-def test_failed_or_ambiguous_mail_does_not_release_reserved_cooldown(database,state):
-    db, clock, _ = database
-    create(db, clock)
-    enqueue(db,state=state)
-    assert not mail_allowed(db)
-
-
-def test_email_block_applies_to_new_agent_keys(database):
-    db, clock, _ = database
-    create(db, clock)
-    db.execute("INSERT INTO mail_blocks VALUES('mail-hash',hg_now())")
-    assert not mail_allowed(db,actor="new-agent-key",source="different-source")
-
-
-def test_pending_expired_email_is_not_queued_for_delivery(database):
-    db, clock, _ = database
-    create(db, clock)
-    enqueue(db)
-    clock.advance(600)
-    db.executescript((ROOT / "src/sql/expire.sql").read_text())
-    assert db.execute("SELECT state FROM mail_operations").fetchone()[0] == "expired"
-
-
-def test_resend_does_not_extend_request(database):
-    db, clock, _ = database
-    create(db, clock)
-    expires=db.execute("SELECT expires_at FROM requests").fetchone()[0]
-    enqueue(db)
-    clock.advance(60)
-    enqueue(db,operation="second-operation")
-    assert db.execute("SELECT expires_at FROM requests").fetchone()[0] == expires
-
-
-def test_concurrent_recipient_reservations_cannot_bypass_cooldown(database):
-    db, clock, path = database
-    create(db, clock)
-    barrier=threading.Barrier(4)
-    def reserve(number):
-        local=connect(path,clock)
-        try:
-            barrier.wait(timeout=5)
-            local.execute("BEGIN IMMEDIATE")
-            allowed=mail_allowed(local)
-            enqueue(local,operation=f"concurrent-{number}",state="queued" if allowed else "suppressed")
-            local.commit()
-            return allowed
-        finally:
-            local.close()
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        assert sum(pool.map(reserve,range(4))) == 1
-    assert db.execute("SELECT count(*) FROM mail_operations WHERE state='queued'").fetchone()[0] == 1
-
-
-def test_audit_has_events_not_credentials_or_mail_addresses(database):
+def test_audit_has_events_not_credentials_or_personal_data(database):
     db, _ = ready(database)
     serialized=json.dumps([dict(row) for row in db.execute("SELECT * FROM audit")])
     for secret in ("restricted-test-token", "alice secret", "recipient@example.test", "link-r1"):

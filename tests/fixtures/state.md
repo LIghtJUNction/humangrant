@@ -3,8 +3,6 @@
 checked_at: 1700000005
 client_id: "example-cli"
 created_at: 1700000000
-email_request_status: "not_requested"
-email_retry_after_seconds: 0
 expires_at: 1700000600
 forwarding_prompt: "Open the human_authorization_url on your own device. Review the exact permissions, then approve or refuse. Never send your password, cookie, or private key to the AI."
 grant_expires_at: null

@@ -1,37 +1,25 @@
-# Deployment and configuration
+# Deployment
 
-This is a deployment procedure for an **unpublished, unverified Rust reference**, not a claim that it
-has run in production. Start with [verification.md](verification.md) and [SECURITY.md](../SECURITY.md).
+Run HumanGrant behind a canonical HTTPS origin and connect it to the application's trusted account login. The local reference uses SQLite and operator-provisioned account keys. See [integration](integration.md) for existing-login adapters and [security](../SECURITY.md) for the account boundary.
 
-## Local development
+## Local reference
 
-Generate a new empty state directory with `python examples/setup_demo.py --dir .state`.
-It contains locally generated AI/Alice/Bob keys, a config with account public keys, and resource seeds.
-Only the public keys go into the server config. Seed data is applied once to a newly initialized
-database. Editing the seed lists later does not restore rights removed from an existing database.
-There is no public endpoint for registering an arbitrary user ID as a logged-in account.
+```sh
+python examples/setup_demo.py --dir .state
+cargo run -- serve .state/config.json
+```
 
-Run `cargo run -- serve .state/config.json`. Loopback HTTP requires `local_development: true` and a
-loopback public origin. Do not expose that plain HTTP listener by changing its bind to `0.0.0.0`;
-configuration validation rejects it. Protect the state directory and do not check it into Git.
+The setup command requires an empty directory. It generates independent demo keys and puts only account public keys in server configuration. Seed records apply once to a new database. Keep the state directory private and outside Git.
 
-## HTTPS and two devices
+Local HTTP requires `local_development: true` and a loopback public origin. The listener also stays on loopback. Open `http://127.0.0.1:8787` for the quiet home page; agents read `/.well-known/humangrant.json` and create the human link through the signed API.
 
-Choose your own controlled hostname and verified TLS certificate. The placeholder `YOUR_AUTH_HOST`
-below is not a project domain. Change `public_origin` in the config to your canonical
-`https://YOUR_AUTH_HOST`, set `local_development` to `false`, and keep `listen` at `127.0.0.1:8787`.
-Restart using the same database. Configure the client with exactly that origin, without a path or
-trailing slash, not one derived from a received purpose or arbitrary redirect.
+## HTTPS
 
-A reverse proxy must terminate TLS, preserve the exact path/body/signed headers, and strip or ignore
-untrusted forwarding values. The reference deliberately uses only the actual socket peer's address,
-so a single proxy shares a source-limit bucket. Apply your own edge request-rate and connection limits.
-Configure header/body read timeouts, a 16 KiB body limit and small header limits. Disable access logging
-for `/human/` and `/invite/` paths or remove capabilities before logging. Do not cache sensitive replies.
+Set `public_origin` to the operator-controlled canonical HTTPS origin, set `local_development` to `false`, and keep `listen` on `127.0.0.1:8787`. Configure a trusted TLS reverse proxy to preserve the exact method, path, body and signed headers. The client uses that same configured origin.
 
-An illustrative Caddy site configuration follows. It is not deployed or validated here. Install and
-validate the proxy according to your own platform. Add your organization's edge connection/rate policy;
-this small example is not internet-scale denial-of-service protection.
+Apply header, body-read and connection timeouts, a 16 KiB body limit and edge rate limits. Disable access logging for `/human/` paths or redact the link capability before logging. Preserve `Cache-Control: no-store`. The reference uses the actual socket peer for source limits; requests through one proxy share that bucket.
+
+An illustrative Caddy configuration, using your own hostname and certificate setup:
 
 ```text
 YOUR_AUTH_HOST {
@@ -42,74 +30,19 @@ YOUR_AUTH_HOST {
 }
 ```
 
-TLS proxy configuration and certificate access are operator responsibilities. A LAN address using
-plain HTTP is not the cross-device exception. Test from the second device using HTTPS, not the
-server's `127.0.0.1` address. No credential or human private key is transferred to the AI as part of
-this process. See the complete [two-device walkthrough](../examples/README.md#two-devices).
+For two devices, share the HTTPS human link. Loopback addresses refer to the device opening them. The human keeps their login and private key on their own device; the agent retains its separate key and session.
 
-## SQLite and operations
+## State and operations
 
-Use one reference server process per database. Use a local filesystem, not a network share. WAL and
-full synchronous mode are configured. Permissions and grants are checked and modified in immediate
-transactions; no Redis or queue service is required. Do not remove migrations or reset a live database
-to clear cooldown. There is one initial schema, not a production upgrade/rollback migration system.
+Use one server process per SQLite database on a local filesystem. WAL and full synchronous mode are configured. Preserve existing database files, replay records and revocations during upgrades. Removing a seed record from configuration does not remove current database rights. When upgrading an earlier configuration, remove its obsolete `mail` object; existing database records remain intact, and retired delivery tables are ignored.
 
-Local administrator commands (not public HTTP backdoors):
+Local operator commands change current authority while preserving grant history:
 
 ```sh
 cargo run -- permission-remove .state/config.json alice notes.read alice-note
 cargo run -- account-disable .state/config.json alice
 ```
 
-Both keep grant history and prevent subsequent access through stale authority. They do not send mail.
-The initial account/resource seed config is not a general account-management API.
+Protect the configuration, database, WAL and backups. Record retention, backup recovery and account-key rotation belong to the operator's deployment plan. Restoring a snapshot can restore old authority and replay state.
 
-Database, WAL, backups, and outbox files can contain personal data and link capabilities. Protect them.
-Long-term record pruning, account key rotation, deployment lockfiles and disaster recovery remain
-operator work; no automatic solution or measured memory footprint is claimed.
-
-## SMTP worker
-
-The default `mail.mode: "local"` writes private `.eml` files to `mail.spool` and performs no SMTP calls.
-Set `mail.mode: "disabled"` to disable mail while keeping forwarded links fully usable.
-Set `mail.mode: "smtp-worker"` only after deliberate operator configuration. The Rust server stores
-fixed-template jobs. [clients/smtp_worker.py](../clients/smtp_worker.py) is a bounded, one-pass Unix tool
-for that outbox; it is not an arbitrary email-sending API and not a background service by default.
-
-Operator environment variables:
-
-| Variable | Meaning |
-|---|---|
-| `HG_SMTP_HOST` | Your SMTP server |
-| `HG_SMTP_PORT` | 465 by default; set 587 for a suitable STARTTLS endpoint |
-| `HG_SMTP_TLS` | `implicit` by default, or `starttls`; no cleartext fallback |
-| `HG_SMTP_FROM` | Your fixed, permitted sender address |
-| `HG_SMTP_USER`, `HG_SMTP_PASSWORD` | Optional credentials; do not print or commit them |
-| `HG_SMTP_TIMEOUT` | 15 seconds by default; accepted range 1–120 |
-
-Only after explicit authorization to send real mail:
-
-```sh
-python clients/smtp_worker.py --config .state/config.json --limit 10 --allow-network
-```
-
-Without `--allow-network` it refuses to run. It takes a local file lock, recovers crashed `sending`
-operations as `delivery_unknown`, and processes at most the chosen batch size. It never automatically
-retries `failed` or `delivery_unknown`. A successful final SMTP DATA response means
-`transport_accepted`, not delivery. A timeout during DATA can mean the message was accepted without
-a reply; re-sending could duplicate it. The operator's review, a new explicitly requested operation,
-unchanged rate limits and the original request deadline govern any recovery.
-
-Local spool recovery runs only in server startup, not when an administrator opens the database.
-Do not mix local spool and SMTP workers against the same live configuration. Tests inject transport
-objects and do not use this network command. No provider credentials, real sends, inbound receipts,
-SMTP-provider compatibility or SPF/DKIM/DMARC deployment has been tested or configured here.
-
-## Configured limits
-
-All defaults and accepted ranges are implemented in [src/config.rs](../src/config.rs).
-Recipient 60-second/3-hourly/5-daily, actor 10-hourly, direct-source 10-hourly, and service
-100-hourly/500-daily limits apply transactionally across request IDs. The public response does not
-reveal which other request or block caused suppression. The database privacy key keeps stable HMAC
-counter identities across restarts. Request creation also has actor/source/service quotas.
-Do not restore an old database casually: that can restore old counters, revocation or replay state.
+[src/config.rs](../src/config.rs) defines request expiry, session expiry, poll interval and request-creation quotas. Defaults are a 600-second login link, a 3600-second maximum session and five-second polling. Creation limits apply per actor, socket source and service. HumanGrant creates links directly; no mail transport or background delivery worker is needed.

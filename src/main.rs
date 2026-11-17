@@ -29,13 +29,6 @@ fn run() -> Result<()> {
         "serve" if args.len() == 3 => {
             let mut app = App::new(config.clone(), clock)?;
             let server = tiny_http::Server::http(&config.listen).map_err(|_| Error::internal())?;
-            if config.mail.mode == "local" {
-                app.store.atomic(|db,_| {
-                    db.execute("UPDATE mail_operations SET state='delivery_unknown',transport_updated_at=hg_now() WHERE state='sending'",[])?;
-                    Ok(())
-                })?;
-                while humangrant::mail::spool_local(&mut app.store, &config)? {}
-            }
             eprintln!(
                 "HumanGrant reference server started; public_origin={}",
                 config.public_origin
@@ -80,7 +73,7 @@ fn run() -> Result<()> {
                         response.add_header(header);
                     }
                 }
-                // No request paths, headers, mail addresses, or response bodies are logged.
+                // No request paths, headers, or response bodies are logged.
                 if request.respond(response).is_err() {
                     eprintln!("response_write_failed");
                 }

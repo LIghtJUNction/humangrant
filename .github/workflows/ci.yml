@@ -23,7 +23,7 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
       - name: Prompt synchronization
         run: python scripts/sync_prompt.py --check
-      - name: Skills, source links, schemas and SVG buttons
+      - name: Skills, source links, schemas and SVG assets
         run: python scripts/check.py
       - name: Rust formatting
         run: cargo fmt --check
@@ -39,5 +39,5 @@ jobs:
           node --check examples/web/webcrypto.js
       - name: Build reference binary
         run: cargo build
-      - name: Real public HTTP flow, local email only
+      - name: Real public HTTP login-link flow
         run: python scripts/e2e.py --binary target/debug/humangrant

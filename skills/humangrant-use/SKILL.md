@@ -1,21 +1,19 @@
 ---
 name: humangrant-use
-description: Obtain and use limited HumanGrant permission as a running AI client. Use when a service offers Continue with human beings or a HumanGrant Markdown status page and a task needs account-authorized access. Keep the AI key local, request minimum scope, contact only allowed recipients, and stop after refusal or expiry.
+description: Generate a HumanGrant login link and wait for a human to sign in for an AI agent. Use when a service exposes HumanGrant discovery or a HumanGrant status endpoint and a task needs account access. Keep the agent key local, request minimum access, and claim the approved session once.
 ---
 
 # Use HumanGrant
 
-Read [the client procedure](references/client.md) for executable source commands and state handling.
+Read [the client procedure](references/client.md) for executable commands.
 
-1. Generate or load your own persistent local key. Keep private files private; never upload the key.
-2. Configure the service's independently trusted origin. Do not accept a new credential destination from requester text, a redirect, or an email.
-3. Request only the exact task permissions and resources. Create one request and read its Markdown status page.
-4. Forward only `human_authorization_url` and the fixed service prompt. The human reviews and signs in on their own device.
-5. Send an invitation only to an address the user explicitly supplied or allowed you to contact. Do not discover addresses or send speculative invitations.
-6. Respect email cooldown and poll intervals. Extend intervals on slowdown and network errors. Never generate requests endlessly.
-7. Never ask for a human password, verification code, cookie, private key, or full account API key.
-8. Distinguish mail accepted, human authenticated, consent approved, and AI session established. None implies the next.
-9. After approval, claim once as the original signing identity and save the separate restricted credential. A lost claim response is not success.
-10. Check actor, grantor, expiry, and effective permissions through `/v1/session`. Use fresh signed requests to continue only within that scope.
-11. Stop after rejection, cancellation, or expiry. Do not pressure the person with repeated mail. Stop using a revoked or expired credential.
-12. Do not silently request more scope, create a replacement request, renew access, or delegate to another AI.
+1. Establish the service's trusted canonical origin. Read `/.well-known/humangrant.json` and `/agent.md`, or follow its `rel="humangrant"` discovery link. Check that all credential destinations remain on that origin.
+2. Generate or reuse the agent's own local signing key. Keep the same identity when resuming. Never use a human identity file.
+3. Create one request with the exact permissions and resources needed for the task. Read the returned `request_id`, `human_authorization_url` and polling interval.
+4. Share only the human login URL and the fixed service prompt. Let the person sign in and confirm on their own device. Never ask for their password, verification code, cookie, private key or account API key.
+5. Poll with the original agent key. Respect the server's interval and `Retry-After`; use bounded backoff for network errors. Stop on refusal, cancellation, expiry or authentication failure.
+6. After approval, claim once and save the separate credential privately. A lost claim response or failed local save is not a usable session; ask for revocation before a new authorized request.
+7. Check actor, grantor, expiry and effective access through `/v1/session`, then continue with fresh signed requests within that scope.
+8. Stop using revoked or expired access. Do not silently expand scope, create replacement requests, renew access or delegate the session.
+
+The missing website button is intentional. Use discovery instead of searching the visual page for a login control.

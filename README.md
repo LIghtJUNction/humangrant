@@ -1,31 +1,18 @@
 <p align="center"><img src="assets/wordmark.svg" alt="HumanGrant" width="100%"></p>
 
-<p align="center">An open protocol for AI agents to sign in with human permission.</p>
+<p align="center">One link. A human signs in. The agent continues.</p>
 
 <p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 
-<p align="center">
-  <a href="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml"><img src="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" height="24"></a>
-  <a href="spec/v0.1.md"><img src="assets/badges/protocol.svg" alt="Protocol 0.1" height="24"></a>
-  <a href="Cargo.toml"><img src="assets/badges/rust.svg" alt="Built with Rust" height="24"></a>
-  <a href="migrations/0001.sql"><img src="assets/badges/sqlite.svg" alt="SQLite" height="24"></a>
-  <a href="openapi.yaml"><img src="assets/badges/openapi.svg" alt="OpenAPI 3.1" height="24"></a>
-  <a href="skills/"><img src="assets/badges/skills.svg" alt="2 Agent Skills" height="24"></a>
-  <a href="LICENSE"><img src="assets/badges/license.svg" alt="MIT License" height="24"></a>
-</p>
+<p align="center"><a href="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml"><img src="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
 
-<p align="center"><a href="spec/v0.1.md">Protocol</a> · <a href="openapi.yaml">API</a> · <a href="examples/README.md">Examples</a> · <a href="docs/integration.md">Integration</a></p>
+HumanGrant gives an AI agent a login link to share with a person. The person opens it, uses their existing account, and confirms access. The agent receives its own limited session and continues the task.
+
+The normal website has no HumanGrant login button or request console. Agents discover the flow through `/.well-known/humangrant.json`, `/agent.md`, and a machine-readable link in the page header. The dedicated human link is the only sign-in surface.
 
 ## Add to your project
 
-<p align="center">
-  <a href="skills/humangrant-integrate/SKILL.md">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/continue-with-human-beings-dark.svg">
-      <img src="assets/continue-with-human-beings.svg" alt="Continue with human beings" width="368" height="64">
-    </picture>
-  </a>
-</p>
+Give your coding agent this instruction:
 
 <!-- BEGIN HUMANGRANT INTEGRATION PROMPT -->
 
@@ -35,13 +22,9 @@ Read https://github.com/LIghtJUNction/humangrant/blob/main/skills/humangrant-int
 
 <!-- END HUMANGRANT INTEGRATION PROMPT -->
 
-## How it works
+Keep your existing account system. [The integration guide](docs/integration.md) explains how to reuse its server-verified login and issue a separate agent session.
 
-**Request → Approve → Act**
-
-The agent sends you a link or email invitation. You open it on your device and choose the actions and resources it can use. Already signed in? Go straight to approval. The agent continues with its own identity. You can revoke access at any time.
-
-## Run locally
+## Run the example
 
 With Rust and Python installed:
 
@@ -55,16 +38,30 @@ python examples/setup_demo.py --dir .state
 cargo run -- serve .state/config.json
 ```
 
-Open <http://127.0.0.1:8787>. Follow the [full example](examples/README.md) to connect an agent and read a note, or see [deployment](docs/deployment.md) for a remote server.
+In another terminal, create the link:
 
-## Agent skills
+```sh
+python clients/humangrant.py --local discover
+python clients/humangrant.py --local --key .state/ai.key.json request --purpose "Read one note" --permissions notes.read:alice-note --expected-human alice
+```
 
-| Skill | Use it to |
+Share the returned `human_authorization_url`. The person completes sign-in in their own browser. Use the returned request ID to wait and claim the agent session:
+
+```sh
+python clients/humangrant.py --local --key .state/ai.key.json status "$REQUEST_ID" --watch --session-out .state/ai-session.json
+```
+
+The notes resource is a small integration example for checking that session access works.
+
+## Reference
+
+| Resource | Purpose |
 | --- | --- |
-| [humangrant-integrate](skills/humangrant-integrate/SKILL.md) | Add HumanGrant to an existing project. |
-| [humangrant-use](skills/humangrant-use/SKILL.md) | Request permission and continue a task. |
-
-Give your agent a skill link, or copy the skill's folder into your client's skill directory.
+| [Integration skill](skills/humangrant-integrate/SKILL.md) | Add discovery and login links to an existing application. |
+| [Client skill](skills/humangrant-use/SKILL.md) | Generate a link, wait for the human, and continue. |
+| [Example walkthrough](examples/README.md) | Run the complete local flow. |
+| [Protocol](spec/v0.1.md) · [OpenAPI](openapi.yaml) | Request, status, authentication, and session contracts. |
+| [Deployment](docs/deployment.md) · [Security](SECURITY.md) | Configure an origin and protect the account boundary. |
 
 ---
 

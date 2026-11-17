@@ -69,23 +69,6 @@ CREATE TABLE IF NOT EXISTS rate_events (
   id INTEGER PRIMARY KEY, bucket TEXT NOT NULL, occurred_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS rate_bucket_time ON rate_events(bucket,occurred_at);
-CREATE TABLE IF NOT EXISTS mail_operations (
-  id TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES requests(id), actor_id TEXT NOT NULL,
-  idempotency_key TEXT NOT NULL, recipient_hash TEXT NOT NULL, source_hash TEXT NOT NULL,
-  recipient TEXT, requested_at INTEGER NOT NULL,
-  state TEXT NOT NULL CHECK(state IN ('queued','suppressed','sending','local_spooled',
-    'transport_accepted','failed','delivery_unknown','expired')),
-  action_token TEXT NOT NULL UNIQUE, subject TEXT NOT NULL, body TEXT NOT NULL,
-  transport_updated_at INTEGER NOT NULL,
-  UNIQUE(actor_id,idempotency_key)
-);
-CREATE INDEX IF NOT EXISTS mail_recipient_time ON mail_operations(recipient_hash,requested_at);
-CREATE INDEX IF NOT EXISTS mail_actor_time ON mail_operations(actor_id,requested_at);
-CREATE INDEX IF NOT EXISTS mail_source_time ON mail_operations(source_hash,requested_at);
-CREATE INDEX IF NOT EXISTS mail_queue ON mail_operations(state,requested_at);
-CREATE TABLE IF NOT EXISTS mail_blocks (
-  recipient_hash TEXT PRIMARY KEY, created_at INTEGER NOT NULL
-);
 CREATE TABLE IF NOT EXISTS audit (
   sequence INTEGER PRIMARY KEY, audit_id TEXT NOT NULL, event TEXT NOT NULL,
   request_id TEXT, actor_id TEXT, human_id TEXT, occurred_at INTEGER NOT NULL

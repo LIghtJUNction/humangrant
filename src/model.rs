@@ -74,13 +74,6 @@ pub struct Approval {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EmailRequest {
-    pub email: String,
-    pub idempotency_key: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Verification {
     pub public_key: String,
     pub signature: String,
@@ -110,8 +103,6 @@ pub struct State {
     pub poll_after_seconds: i64,
     pub human_authorization_url: String,
     pub requested_permissions: Vec<Permission>,
-    pub email_request_status: String,
-    pub email_retry_after_seconds: i64,
     pub target_service: String,
     pub client_id: String,
     pub forwarding_prompt: String,

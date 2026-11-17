@@ -112,8 +112,8 @@ def test_default_english_and_chinese_language_switches():
     assert english.index('## Add to your project') < english.index(BEGIN)
     assert chinese.index('## 让 AI 为你的项目接入 HumanGrant') < chinese.index(BEGIN)
     for text in (english, chinese):
-        assert 'srcset="assets/continue-with-human-beings-dark.svg"' in text
-        assert 'src="assets/continue-with-human-beings.svg"' in text
+        assert 'continue-with-human-beings' not in text
+        assert '/.well-known/humangrant.json' in text
         assert 'assets/wordmark.svg' in text
         assert len(text.encode('utf-8')) < 6000
         for removed in ('docs/verification.md', '尚未推送', '## Boundaries', '## Progress', '## Disclaimer'):
@@ -141,15 +141,15 @@ def test_badges_describe_real_repository_contents():
         assert 'codecov' not in readme and 'coverage-' not in readme
 
 
-def test_html_dark_image_references_are_checked(tmp_path):
+def test_html_image_references_are_checked(tmp_path):
     from check import Failure
     root = tmp_path / 'repo'
-    shutil.copytree(ROOT, root, ignore=shutil.ignore_patterns('.git', '.pytest_cache', '__pycache__'))
+    shutil.copytree(ROOT, root, ignore=shutil.ignore_patterns('.git', '.pytest_cache', '__pycache__', '.venv', 'target'))
     path = root / 'README.md'
     path.write_text(path.read_text(encoding='utf-8').replace(
-        'srcset="assets/continue-with-human-beings-dark.svg"', 'srcset="assets/missing-dark.svg"',
+        'src="assets/wordmark.svg"', 'src="assets/missing-mark.svg"',
     ), encoding='utf-8')
-    with pytest.raises(Failure, match='missing assets/missing-dark.svg'):
+    with pytest.raises(Failure, match='missing assets/missing-mark.svg'):
         check(root)
 
 

@@ -77,7 +77,7 @@ impl Harness {
         let directory =
             std::env::temp_dir().join(format!("humangrant-test-{}", crypto::random_token()));
         let clock = Arc::new(TestClock(AtomicI64::new(START)));
-        let mut config = Config {
+        let config = Config {
             public_origin: ORIGIN.into(),
             database: directory.join("state.db"),
             accounts: vec![
@@ -112,7 +112,6 @@ impl Harness {
             ],
             ..Config::default()
         };
-        config.mail.spool = directory.join("outbox");
         let app = App::new(config, clock.clone()).unwrap();
         Self {
             app,
@@ -562,15 +561,15 @@ fn duplicate_approval_and_claim_do_not_issue_another_credential() {
 #[test]
 fn revoke_preserves_history_but_removes_access() {
     let mut h = Harness::new();
-    let (state, issued, mut browser) = h.authorized();
-    let grants = h.browser("GET", "/human/grants", &browser.cookie, "", json!({}));
-    browser.csrf = text(&page_data(&grants), "csrf");
-    let revoke = h.browser(
+    let (state, issued, _) = h.authorized();
+    let grants = h.send(2, "GET", "/v1/human/grants", json!({}), "anonymous");
+    assert_eq!(grants.status, 200);
+    let revoke = h.send(
+        2,
         "POST",
-        &format!("/human/grants/{}/revoke", text(&issued, "grant_id")),
-        &browser.cookie,
-        &browser.csrf,
+        &format!("/v1/human/grants/{}/revoke", text(&issued, "grant_id")),
         json!({}),
+        "anonymous",
     );
     assert_eq!(revoke.status, 200);
     assert_eq!(
@@ -689,50 +688,6 @@ fn polling_changes_query_time_not_state_change_time() {
 }
 
 #[test]
-fn local_email_is_idempotent_private_and_does_not_extend_deadline() {
-    let mut h = Harness::new();
-    let state = h.create(None);
-    let path = format!("/v1/requests/{}/email", text(&state, "request_id"));
-    let body = json!({"email":"test@example.invalid","idempotency_key":"once"});
-    let first = h.send(1, "POST", &path, body.clone(), "anonymous");
-    let second = h.send(1, "POST", &path, body, "anonymous");
-    assert_eq!(first.status, 202);
-    assert_eq!(first.body, second.body);
-    let files: Vec<_> = std::fs::read_dir(h.directory.join("outbox"))
-        .unwrap()
-        .collect();
-    assert_eq!(files.len(), 1);
-    let mail = std::fs::read_to_string(files[0].as_ref().unwrap().path()).unwrap();
-    assert!(mail.contains(&text(&state, "human_authorization_url")));
-    assert!(!mail.contains("private_key"));
-    assert!(!String::from_utf8(first.body)
-        .unwrap()
-        .contains("test@example.invalid"));
-    let checked = h.send(
-        1,
-        "GET",
-        &format!("/v1/requests/{}", text(&state, "request_id")),
-        json!({}),
-        "anonymous",
-    );
-    assert_eq!(value(&checked)["expires_at"], state["expires_at"]);
-    let mut browser = h.open(&state);
-    assert_eq!(h.authenticate(&mut browser, 2).status, 200);
-    assert_eq!(h.approve(&browser).status, 200);
-    assert_eq!(
-        h.send(
-            1,
-            "POST",
-            &format!("/v1/requests/{}/claim", text(&state, "request_id")),
-            json!({}),
-            "anonymous"
-        )
-        .status,
-        200
-    );
-}
-
-#[test]
 fn concurrent_claims_using_separate_connections_issue_exactly_once() {
     let mut h = Harness::new();
     let state = h.create(None);
@@ -773,3 +728,6 @@ fn invalid_origin_and_public_plain_http_are_rejected() {
 
 #[path = "cases/existing_login.rs"]
 mod existing_login;
+
+#[path = "cases/discovery.rs"]
+mod discovery;

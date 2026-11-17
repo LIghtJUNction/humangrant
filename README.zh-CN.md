@@ -1,31 +1,18 @@
 <p align="center"><img src="assets/wordmark.svg" alt="HumanGrant" width="100%"></p>
 
-<p align="center">让 AI 经人类授权登录的开放协议。</p>
+<p align="center">AI 发一个链接，人类完成登录，任务继续。</p>
 
 <p align="center"><a href="README.md">English</a> · <strong>简体中文</strong></p>
 
-<p align="center">
-  <a href="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml"><img src="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" height="24"></a>
-  <a href="spec/v0.1.md"><img src="assets/badges/protocol.svg" alt="Protocol 0.1" height="24"></a>
-  <a href="Cargo.toml"><img src="assets/badges/rust.svg" alt="Built with Rust" height="24"></a>
-  <a href="migrations/0001.sql"><img src="assets/badges/sqlite.svg" alt="SQLite" height="24"></a>
-  <a href="openapi.yaml"><img src="assets/badges/openapi.svg" alt="OpenAPI 3.1" height="24"></a>
-  <a href="skills/"><img src="assets/badges/skills.svg" alt="2 Agent Skills" height="24"></a>
-  <a href="LICENSE"><img src="assets/badges/license.svg" alt="MIT License" height="24"></a>
-</p>
+<p align="center"><a href="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml"><img src="https://github.com/LIghtJUNction/humangrant/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a></p>
 
-<p align="center"><a href="spec/v0.1.md">协议</a> · <a href="openapi.yaml">接口</a> · <a href="examples/README.md">示例</a> · <a href="docs/integration.md">接入文档</a></p>
+HumanGrant 只做一件事：让 AI 生成登录链接，交给人类代登录。人类打开链接，使用已有账户并确认访问，AI 获得自己的受限会话，继续完成任务。
+
+普通网页不展示 HumanGrant 登录按钮或请求控制台。AI 通过 `/.well-known/humangrant.json`、`/agent.md` 和页面头部的机器可读链接发现入口。人类只在收到的专用链接里完成登录。
 
 ## 让 AI 为你的项目接入 HumanGrant
 
-<p align="center">
-  <a href="skills/humangrant-integrate/SKILL.md">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/continue-with-human-beings-dark.svg">
-      <img src="assets/continue-with-human-beings.svg" alt="Continue with human beings" width="368" height="64">
-    </picture>
-  </a>
-</p>
+把下面这句话发给开发助手：
 
 <!-- BEGIN HUMANGRANT INTEGRATION PROMPT -->
 
@@ -35,15 +22,11 @@
 
 <!-- END HUMANGRANT INTEGRATION PROMPT -->
 
-## 如何工作
+保留项目已有的账户与登录方式。[接入指南](docs/integration.md) 说明如何复用服务端验证过的登录状态，并为 AI 签发独立会话。
 
-**申请 → 批准 → 执行**
+## 运行示例
 
-AI 向你发送链接或邮件邀请。你在自己的设备上打开，选择允许的操作和资源。已登录时，直接确认授权，无需重复登录。AI 以自己的身份继续任务，你可以随时撤销授权。
-
-## 本地运行
-
-先安装 Rust 和 Python：
+准备 Rust 和 Python 后执行：
 
 ```sh
 git clone https://github.com/LIghtJUNction/humangrant.git
@@ -55,16 +38,30 @@ python examples/setup_demo.py --dir .state
 cargo run -- serve .state/config.json
 ```
 
-打开 <http://127.0.0.1:8787>。按[完整示例](examples/README.md)连接 AI 并读取一条笔记，远程运行请看[部署文档](docs/deployment.md)。
+在另一个终端生成链接：
 
-## Agent 技能
+```sh
+python clients/humangrant.py --local discover
+python clients/humangrant.py --local --key .state/ai.key.json request --purpose "Read one note" --permissions notes.read:alice-note --expected-human alice
+```
 
-| 技能 | 用途 |
+把返回的 `human_authorization_url` 发给人类。人类在自己的浏览器里完成登录。将返回的请求 ID 用于等待和领取会话：
+
+```sh
+python clients/humangrant.py --local --key .state/ai.key.json status "$REQUEST_ID" --watch --session-out .state/ai-session.json
+```
+
+示例里的笔记资源用于验证会话确实可以访问获准内容。
+
+## 文档
+
+| 文档 | 用途 |
 | --- | --- |
-| [humangrant-integrate](skills/humangrant-integrate/SKILL.md) | 为现有项目接入 HumanGrant。 |
-| [humangrant-use](skills/humangrant-use/SKILL.md) | 申请授权并继续任务。 |
-
-将技能链接交给 AI，或把对应技能文件夹复制到客户端的技能目录。
+| [接入技能](skills/humangrant-integrate/SKILL.md) | 为现有应用增加 AI 发现入口和登录链接。 |
+| [使用技能](skills/humangrant-use/SKILL.md) | 生成链接，等待人类登录，然后继续任务。 |
+| [完整示例](examples/README.md) | 跑通本地登录流程。 |
+| [协议](spec/v0.1.md) · [OpenAPI](openapi.yaml) | 请求、状态、身份验证和会话接口。 |
+| [部署](docs/deployment.md) · [安全边界](SECURITY.md) | 配置服务地址并保护账户身份。 |
 
 ---
 

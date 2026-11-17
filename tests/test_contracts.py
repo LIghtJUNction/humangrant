@@ -52,10 +52,11 @@ def test_openapi_has_all_required_public_paths():
     assert api['openapi']=='3.1.0'
     assert {'/v1/requests','/v1/requests/{id}/status.md','/v1/requests/{id}',
         '/v1/requests/{id}/claim','/v1/requests/{id}/cancel',
-        '/v1/requests/{id}/email','/human/{link}','/human/{link}/begin',
+        '/.well-known/humangrant.json','/agent.md','/human/{link}','/human/{link}/begin',
         '/human/{link}/verify','/human/{link}/approve','/human/{link}/reject',
         '/v1/session','/v1/human/grants','/v1/human/grants/{id}/revoke',
         '/v1/notes/{id}'}.issubset(api['paths'])
+    assert not any('/email' in path or path.startswith('/invite/') or path.startswith('/human/grants') for path in api['paths'])
     content = api['paths']['/v1/requests/{id}/status.md']['get']['responses']['200']['content']
     assert 'text/markdown' in content
 
@@ -72,3 +73,26 @@ def test_no_python_reference_server_substitution():
     # The client's language-independent tests are not an implementation of Rust's HTTP handlers.
     assert not (ROOT/'examples/server.py').exists()
     assert 'include_str!("sql/' in (ROOT/'src/requests.rs').read_text()
+
+
+def test_discovery_schema_matches_public_login_link_contract():
+    origin = 'https://auth.example.test'
+    value = {
+        'protocol_version': 'HumanGrant Protocol 0.1 Draft',
+        'flow': 'human_login_link', 'origin': origin,
+        'agent_instructions_url': origin + '/agent.md',
+        'request_endpoint': origin + '/v1/requests',
+        'status_endpoint_template': origin + '/v1/requests/{request_id}',
+        'status_markdown_endpoint_template': origin + '/v1/requests/{request_id}/status.md',
+        'claim_endpoint_template': origin + '/v1/requests/{request_id}/claim',
+        'cancel_endpoint_template': origin + '/v1/requests/{request_id}/cancel',
+        'session_endpoint': origin + '/v1/session',
+        'authentication': 'ed25519-http-signatures', 'browser_entrypoint': False,
+        'poll_after_seconds': 5, 'request_ttl_seconds': 600,
+        'schema_url': origin + '/schemas/protocol.json',
+        'openapi_url': origin + '/openapi.yaml',
+    }
+    validate('Discovery', value)
+    value['accounts'] = ['alice']
+    with pytest.raises(Exception):
+        validate('Discovery', value)

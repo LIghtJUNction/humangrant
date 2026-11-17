@@ -1,33 +1,26 @@
 # Integration procedure
 
 Source: https://github.com/LIghtJUNction/humangrant
-Version: HumanGrant Protocol 0.1 Draft. No release tag or package is asserted.
-After copying this skill elsewhere, locate the matching HumanGrant source checkout; do not assume
-that the skill's parent directory still contains the server. A local source archive is sufficient.
 
-In the HumanGrant checkout, read `spec/v0.1.md`, `openapi.yaml`, `schemas/protocol.json`,
-`docs/integration.md`, `examples/README.md`, and `docs/verification.md`. Maintenance rules remain
-in that checkout's `AGENTS.md`; do not copy and maintain a second rule list here.
+Locate a matching source checkout and read `AGENTS.md`, `spec/v0.1.md`, `openapi.yaml`, `schemas/protocol.json` and `docs/integration.md`. An installed skill does not include or install the server.
 
-In the target project, identify actual server-authenticated principal creation and the protected
-business operation. Do not add a separate fake user store to bypass its rights. Decide whether to
-implement the public protocol in the existing backend or add a trusted server-side adapter. The
-standalone Rust `notes` example is not a universal authorization proxy for arbitrary services.
-The full effective-permission check belongs next to the protected operation, not only at login.
+## Discovery and human handoff
 
-The fixed human link is `/human/{link}`. Private Markdown is `/v1/requests/{id}/status.md`.
-Only the original signing identity may claim at `/v1/requests/{id}/claim`. Use the exact signature
-profile and public test vector; do not improvise string concatenation or bearer-only credentials.
-`HumanAuthenticator` in `src/auth.rs` is trusted server code; implementing the trait is not proof
-that an adapter is correct. The host must authenticate, map to a stable local account, and enforce
-current policy. Never expose arbitrary account IDs as a public authentication method.
-Check an existing login through `HumanAuthenticator::session_principal(db, cookie, now)` or the
-host's equivalent server-side session API. A valid login skips identity verification and shows
-permission confirmation immediately. Check the same account again when consent is submitted.
-Do not copy the login lifetime, cache a logged-out principal, or treat opening a link as consent.
-Test a second request with the same browser, an expired login, an account switch, and GET scanning.
+Expose `/.well-known/humangrant.json` and `/agent.md` on the canonical service origin. Advertise discovery in the HTTP `Link` header and HTML head. Keep the ordinary page free of visible HumanGrant login controls. Discovery is public metadata; request signatures authenticate agent operations.
 
-Real commands from the HumanGrant checkout:
+The agent creates a request at `/v1/requests`, shares its `/human/{link}` URL, polls `/v1/requests/{id}/status.md`, then claims at `/v1/requests/{id}/claim`. Only the original signing identity can read or claim that request. Use the exact signature profile and fixture, not bearer-only requests.
+
+## Host account boundary
+
+Find the actual host account validator and protected business operation. Keep both authoritative. `HumanAuthenticator` in `src/auth.rs` is trusted server code. Override `session_principal(db, cookie, now)` to validate the current host login, including logout and expiry. Return its stable account principal, never a posted account ID.
+
+A valid existing login displays confirmation immediately. Recheck the account and request-bound CSRF token on submission. Loading the human link cannot authenticate, approve or create an agent session. Test a second request in the same browser, account switching and an expired login.
+
+Keep the effective permission check beside each protected operation. The built-in notes policy is a reference integration. Map real host actions/resources and enforce current ownership, account rights, expiry and revocation there.
+
+## Checks
+
+Run these from the HumanGrant checkout, and run the target project's own checks for its implementation:
 
 ```sh
 python -m pip install -r requirements-dev.txt
@@ -40,19 +33,11 @@ cargo build
 python scripts/e2e.py --binary target/debug/humangrant
 ```
 
-A development demo, with no real mail:
+For a local example:
 
 ```sh
 python examples/setup_demo.py --dir .state
 cargo run -- serve .state/config.json
 ```
 
-The setup command refuses a nonempty directory. Do not delete an existing state directory to force
-it through. Use another empty directory and preserve current data. For unrelated target stacks,
-run the target's own commands rather than applying these Rust commands to it.
-
-Review scope reduction, pre-consent access, wrong actor, expected human, resource owner, current
-rights removed, expiry, revocation, duplicate/nonces, concurrent issuance, and GET scanners.
-Exercise both forwarded-link and local-mail paths. Verify mail limits across request IDs and restart.
-Verify exact Markdown fields and update times, then verify a real read succeeds while a write and
-another user's read fail. A test that supplies a fake user ID is not a login-flow test.
+Setup refuses a nonempty directory; choose a new empty directory rather than deleting current data. Verify discovery, one generated link, real account authentication, explicit consent and one-time agent claim. Check denied extra resources, wrong actor, expected-account mismatch, stale consent, replay, expiry, cancellation and revocation. Report only checks actually run.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the real Rust server over public HTTP. No fake server, fake login, or real mail."""
+"""Exercise machine discovery and human login links against the real Rust HTTP server."""
 from __future__ import annotations
 import argparse
 import base64
@@ -116,11 +116,24 @@ def run(binary: Path) -> int:
                     try:
                         with urllib.request.urlopen(origin+'/',timeout=1) as response:
                             assert response.status==200
+                            assert '/.well-known/humangrant.json' in response.headers['Link']
+                            parser=DataParser();parser.feed(response.read().decode())
+                            assert json.loads(''.join(parser.parts))['view']=='home'
                         break
                     except (OSError,urllib.error.URLError):
                         if time.monotonic()>=deadline: raise RuntimeError('Rust server did not become ready')
                         time.sleep(0.05)
-                state=create(client);request=state['request_id'];path=urllib.parse.urlsplit(state['human_authorization_url']).path
+                cli=[sys.executable,str(ROOT/'clients/humangrant.py'),'--local','--origin',origin]
+                metadata=json.loads(subprocess.run(cli+['discover'],check=True,capture_output=True,text=True,timeout=10).stdout)
+                assert metadata['flow']=='human_login_link'
+                assert metadata['request_endpoint']==origin+'/v1/requests'
+                assert metadata['browser_entrypoint'] is False
+                checks.append('nonvisual discovery + unsigned metadata + signed login creation')
+                created=subprocess.run(cli+['--key',str(folder/'state/ai.key.json'),'request',
+                    '--purpose','Sign in to read my note','--expected-human','alice',
+                    '--permissions','notes.read:alice-note','notes.write:alice-note'],
+                    check=True,capture_output=True,text=True,timeout=10)
+                state=json.loads(created.stdout);request=state['request_id'];path=urllib.parse.urlsplit(state['human_authorization_url']).path
                 human=Human(origin,alice_key)
                 assert human.open(path)['phase']=='waiting_human'
                 assert human.open(path)['human_id'] is None
@@ -154,29 +167,22 @@ def run(binary: Path) -> int:
                         with urllib.request.urlopen(request,timeout=5) as response: return response.status
                     except urllib.error.HTTPError as error: return error.code
                 assert same_signed_request()==200 and same_signed_request()==401
-                grants=human.open('/human/grants')['grants'];assert len(grants)==1
-                assert human.request('POST',f"/human/grants/{issued['grant_id']}/revoke")[0]==200
+                human_client=Client(origin,alice_key,local=True)
+                grants=human_client.request('GET','/v1/human/grants')['grants'];assert len(grants)==1
+                human_client.request('POST',f"/v1/human/grants/{issued['grant_id']}/revoke")
                 expect_error(lambda:client.request('GET','/v1/notes/alice-note',token=token),401)
                 assert client.state(request)['grant_status']=='revoked'
                 checks.append('forwarded link + real human proof + narrowed scope + replay + revoke')
 
                 state=create(client);request=state['request_id'];path=urllib.parse.urlsplit(state['human_authorization_url']).path
-                invitation={'email':'local-recipient@example.invalid','idempotency_key':'mail-once'}
-                first=client.request('POST',f'/v1/requests/{request}/email',invitation)
-                assert first==client.request('POST',f'/v1/requests/{request}/email',invitation)
-                assert first['email_request_status']=='accepted'
-                spooled=list((folder/'state/outbox').glob('*.eml'));assert len(spooled)==1
-                message=spooled[0].read_text();assert state['human_authorization_url'] in message
-                assert 'HumanGrant permission request' in message and 'notes.read' in message
-                mail_human=human
-                reviewed=mail_human.open(path)
+                reviewed=human.open(path)
                 assert reviewed['human_id']=='alice' and reviewed['phase']=='waiting_human'
                 assert client.state(request)['phase']=='waiting_human'
                 expect_error(lambda:client.request('POST',f'/v1/requests/{request}/claim'),409)
-                assert mail_human.approve(path,int(time.time())+300)[0]==200
+                assert human.approve(path,int(time.time())+300)[0]==200
                 issued=client.request('POST',f'/v1/requests/{request}/claim');issued_tokens.append(issued['access_token'])
                 assert client.request('GET','/v1/notes/alice-note',token=issued['access_token'])['context']['grantor_id']=='alice'
-                checks.append('local .eml invitation + existing login without reauthentication + explicit consent + restricted read')
+                checks.append('existing login without reauthentication + explicit consent + restricted read')
 
                 state=create(client);request=state['request_id'];path=urllib.parse.urlsplit(state['human_authorization_url']).path
                 mismatch=Human(origin,bob_key);mismatch.open(path)
@@ -211,10 +217,10 @@ def run(binary: Path) -> int:
                 try:process.wait(timeout=5)
                 except subprocess.TimeoutExpired:process.kill();process.wait()
         logs=log_path.read_text()
-        for secret in issued_tokens+[ai_key.sign(b'probe'),alice_key.sign(b'probe'),'local-recipient@example.invalid','hg_browser=']:
+        for secret in issued_tokens+[ai_key.sign(b'probe'),alice_key.sign(b'probe'),'hg_browser=']:
             assert secret not in logs
-        checks.append('server log contains no issued credentials, cookies or recipient address')
-        print(json.dumps({'public_http':'passed','checks':checks,'real_mail_sent':False},indent=2))
+        checks.append('server log contains no issued credentials or cookies')
+        print(json.dumps({'public_http':'passed','checks':checks},indent=2))
     return 0
 
 

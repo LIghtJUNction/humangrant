@@ -28,8 +28,7 @@ TERMINAL = {"succeeded", "rejected", "cancelled", "expired"}
 REQUIRED_STATE = {
     "protocol_version", "request_id", "status", "status_text", "phase", "created_at",
     "status_updated_at", "checked_at", "expires_at", "poll_after_seconds",
-    "human_authorization_url", "requested_permissions", "email_request_status",
-    "email_retry_after_seconds",
+    "human_authorization_url", "requested_permissions",
 }
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -155,6 +154,22 @@ class ProtocolError(Exception):
         super().__init__(f"HTTP {status}: {code}; retry_after_seconds={retry}")
 
 
+def discover(origin: str, *, local: bool = False) -> dict[str, Any]:
+    """Read the machine entrypoint without creating an identity or a login request."""
+    origin = trusted_origin(origin, local)
+    opener = urllib.request.build_opener(NoRedirect())
+    with opener.open(origin + "/.well-known/humangrant.json", timeout=10) as response:
+        if response.headers.get_content_type() != "application/json":
+            raise ValueError("The discovery endpoint did not return JSON")
+        data = response.read(65_537)
+        if len(data) > 65_536:
+            raise ValueError("Discovery response exceeds the client size limit")
+    metadata = json.loads(data)
+    if not isinstance(metadata, dict) or metadata.get("origin") != origin or metadata.get("protocol_version") != PROTOCOL:
+        raise ValueError("Discovery metadata does not match the trusted origin or protocol")
+    return metadata
+
+
 class Client:
     def __init__(self, origin: str, identity: Identity, *, local: bool = False, timeout: float = 10):
         self.origin = trusted_origin(origin, local)
@@ -219,7 +234,7 @@ def parse_markdown(text: str) -> dict[str, Any]:
         raise ValueError("Unsupported or incomplete state representation")
     if state["phase"] not in TERMINAL | {"waiting_human", "authenticating_human", "awaiting_consent", "approved"}:
         raise ValueError("Unknown phase")
-    for field in ("created_at", "status_updated_at", "checked_at", "expires_at", "poll_after_seconds", "email_retry_after_seconds"):
+    for field in ("created_at", "status_updated_at", "checked_at", "expires_at", "poll_after_seconds"):
         if type(state[field]) is not int or state[field] < 0:
             raise ValueError("Invalid state time")
     return state
@@ -313,10 +328,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--local", action="store_true", help="Allow loopback HTTP only")
     parser.add_argument("--key", type=Path, help="Local private identity file; never uploaded")
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("discover", help="Find the AI login-link interface without a private key")
     keygen = sub.add_parser("keygen", help="Create a new local Ed25519 identity")
     keygen.add_argument("--out", type=Path, required=True)
     sub.add_parser("public", help="Show the public identity only")
-    create = sub.add_parser("request", help="Create one authorization request")
+    create = sub.add_parser("request", help="Generate one login link to give to the human")
     create.add_argument("--client-id", default="example-cli")
     create.add_argument("--service", default="notes")
     create.add_argument("--purpose", required=True)
@@ -328,10 +344,6 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("request_id")
     status.add_argument("--watch", action="store_true")
     status.add_argument("--session-out", type=Path)
-    invite = sub.add_parser("email", help="Invite only an email address the user has allowed you to contact")
-    invite.add_argument("request_id")
-    invite.add_argument("--email", required=True)
-    invite.add_argument("--operation", required=True, help="Reuse this key only for an identical retry")
     claim = sub.add_parser("claim", help="Claim once and save a separate restricted session")
     claim.add_argument("request_id")
     claim.add_argument("--out", required=True, type=Path)
@@ -355,6 +367,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "discover":
+        print(json.dumps(discover(args.origin, local=args.local), ensure_ascii=False, indent=2))
+        return 0
     if args.command == "keygen":
         identity = Identity.generate()
         identity.save(args.out)
@@ -391,8 +406,6 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--watch requires --session-out")
         raw = client.request("GET", f"/v1/requests/{safe_id(args.request_id)}/status.md", markdown=True)
         result = parse_markdown(raw)
-    elif args.command == "email":
-        result = client.request("POST", f"/v1/requests/{safe_id(args.request_id)}/email", {"email": args.email, "idempotency_key": safe_id(args.operation)})
     elif args.command == "claim":
         result = save_claim(client, args.request_id, args.out)
     elif args.command == "cancel":
@@ -409,15 +422,11 @@ def main(argv: list[str] | None = None) -> int:
         result = client.request("POST", f"/v1/human/grants/{safe_id(args.grant_id)}/revoke")
     else:
         raise ValueError("Unknown command")
-    if args.command in {"request", "status"}:
-        # Creation returns Location + JSON, then the CLI reads the actual Markdown endpoint.
-        if args.command == "request":
-            time.sleep(max(0, int(result["poll_after_seconds"])))
-            raw = client.request("GET", f"/v1/requests/{safe_id(result['request_id'])}/status.md", markdown=True)
-            result = parse_markdown(raw)
-        print(raw)
+    if args.command == "status":
+        print(raw, flush=True)
     else:
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        # Show the handoff link immediately, before waiting for the human.
+        print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
     if getattr(args, "watch", False):
         if "human_authorization_url" in result:
             print("Forward this human-only review link: " + result["human_authorization_url"], file=sys.stderr)

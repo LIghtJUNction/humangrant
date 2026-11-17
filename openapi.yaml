@@ -3,11 +3,11 @@ jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: HumanGrant reference API
   version: 0.1-draft
-  summary: An open protocol for AI agents to sign in with human permission.
-  description: HumanGrant Protocol 0.1 Draft. Unpublished draft; no claim of full OAuth, RFC 9421, or
-    third-party product compatibility. This reference service implements the notes permission vocabulary.
-    All signed requests use the strict signature profile in spec/v0.1.md. Human authentication and approval
-    are distinct. Timestamps are UTC Unix seconds.
+  summary: Generate a login link for a human to sign in for an agent.
+  description: HumanGrant Protocol 0.1 Draft. Unpublished draft; no claim of full OAuth, RFC 9421, or third-party
+    product compatibility. This reference service implements the notes permission vocabulary. All signed requests
+    use the strict signature profile in spec/v0.1.md. Human authentication and approval are distinct. Timestamps
+    are UTC Unix seconds.
   license:
     name: MIT
     identifier: MIT
@@ -15,6 +15,34 @@ servers:
 - url: http://127.0.0.1:8787
   description: Explicit loopback development mode only. Configure HTTPS for a real deployment.
 paths:
+  /.well-known/humangrant.json:
+    get:
+      summary: Discover the login-link flow without a visible website button
+      operationId: get_humangrant_discovery
+      tags:
+      - Agent discovery
+      security: []
+      responses:
+        '200':
+          description: Public origin-bound protocol metadata
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/protocol.json#/$defs/Discovery
+  /agent.md:
+    get:
+      summary: Read plain instructions for the agent
+      operationId: get_agent_instructions
+      tags:
+      - Agent discovery
+      security: []
+      responses:
+        '200':
+          description: Login-link instructions
+          content:
+            text/markdown:
+              schema:
+                type: string
   /v1/requests:
     post:
       summary: Create one immutable, key-bound authorization request
@@ -86,33 +114,6 @@ paths:
         in: path
         required: true
         schema: *id002
-  /v1/requests/{id}/email:
-    post:
-      summary: Accept a fixed-template invite request; not a delivery confirmation
-      operationId: post_v1_requests_id_email
-      tags:
-      - AI and signed human API
-      security: *id001
-      responses:
-        '202':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/protocol.json#/$defs/EmailAccepted
-        default:
-          $ref: '#/components/responses/Error'
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema: *id002
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./schemas/protocol.json#/$defs/EmailRequest
   /v1/requests/{id}/claim:
     post:
       summary: Claim by the original signed AI only
@@ -188,7 +189,7 @@ paths:
       summary: List grants with a registered human key, not an AI token
       operationId: get_v1_human_grants
       tags:
-      - AI and signed human API
+      - Host account controls
       security: *id001
       responses:
         '200':
@@ -204,7 +205,7 @@ paths:
       summary: Revoke a grant owned by the authenticated human
       operationId: post_v1_human_grants_id_revoke
       tags:
-      - AI and signed human API
+      - Host account controls
       security: *id001
       responses:
         '200':
@@ -231,7 +232,7 @@ paths:
       summary: Read exactly the authorized resource, with live rights and revocation checks
       operationId: get_v1_notes_id
       tags:
-      - AI and signed human API
+      - Reference resource
       security: *id001
       responses:
         '200':
@@ -251,7 +252,7 @@ paths:
       summary: Write exactly the authorized resource, not merely any logged-in resource
       operationId: put_v1_notes_id
       tags:
-      - AI and signed human API
+      - Reference resource
       security: *id001
       responses:
         '200':
@@ -289,6 +290,12 @@ paths:
                 type: string
         default:
           $ref: '#/components/responses/Error'
+        '404':
+          description: Unknown login link; human-readable page
+          content:
+            text/html:
+              schema:
+                type: string
       parameters:
       - name: link
         in: path
@@ -458,167 +465,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/protocol.json#/$defs/Empty
-  /human/grants:
-    get:
-      summary: Show the authenticated account’s grants
-      operationId: get_human_grants
-      tags:
-      - Human browser
-      security:
-      - BrowserSession: []
-      responses:
-        '200':
-          description: Success
-          content:
-            text/html:
-              schema:
-                type: string
-        default:
-          $ref: '#/components/responses/Error'
-  /human/grants/{id}/revoke:
-    post:
-      summary: Revoke one own grant from the human browser
-      operationId: post_human_grants_id_revoke
-      tags:
-      - Human browser
-      security:
-      - BrowserSession: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/protocol.json#/$defs/Decision
-        default:
-          $ref: '#/components/responses/Error'
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema: *id002
-      - name: Origin
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uri
-        description: Must equal the configured trusted public origin.
-      - name: X-HG-CSRF
-        in: header
-        required: true
-        schema:
-          type: string
-        description: Token from the same browser session.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./schemas/protocol.json#/$defs/Empty
-  /invite/{token}:
-    get:
-      summary: Read refusal and block options; GET has no decision effect
-      operationId: get_invite_token
-      tags:
-      - Human browser
-      security: []
-      responses:
-        '200':
-          description: Success
-          content:
-            text/html:
-              schema:
-                type: string
-        default:
-          $ref: '#/components/responses/Error'
-      parameters:
-      - name: token
-        in: path
-        required: true
-        schema: *id002
-  /invite/{token}/reject:
-    post:
-      summary: Refuse an undecided request
-      operationId: post_invite_token_reject
-      tags:
-      - Human browser
-      security:
-      - BrowserSession: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/protocol.json#/$defs/Decision
-        default:
-          $ref: '#/components/responses/Error'
-      parameters:
-      - name: token
-        in: path
-        required: true
-        schema: *id002
-      - name: Origin
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uri
-        description: Must equal the configured trusted public origin.
-      - name: X-HG-CSRF
-        in: header
-        required: true
-        schema:
-          type: string
-        description: Token from the same browser session.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./schemas/protocol.json#/$defs/Empty
-  /invite/{token}/block:
-    post:
-      summary: Refuse an undecided request and block later invitations
-      operationId: post_invite_token_block
-      tags:
-      - Human browser
-      security:
-      - BrowserSession: []
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: ./schemas/protocol.json#/$defs/Decision
-        default:
-          $ref: '#/components/responses/Error'
-      parameters:
-      - name: token
-        in: path
-        required: true
-        schema: *id002
-      - name: Origin
-        in: header
-        required: true
-        schema:
-          type: string
-          format: uri
-        description: Must equal the configured trusted public origin.
-      - name: X-HG-CSRF
-        in: header
-        required: true
-        schema:
-          type: string
-        description: Token from the same browser session.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./schemas/protocol.json#/$defs/Empty
 components:
   securitySchemes:
     HttpSignature:
@@ -645,13 +491,14 @@ components:
       type: apiKey
       in: header
       name: Authorization
-      description: HumanGrant anonymous, or HumanGrant plus a separately issued AI credential. This header
-        is itself signed.
+      description: HumanGrant anonymous, or HumanGrant plus a separately issued AI credential. This header is itself
+        signed.
     BrowserSession:
       type: apiKey
       in: cookie
       name: hg_browser
-      description: HttpOnly, SameSite=Lax, Secure with HTTPS; independent of AI credentials. A valid existing human login skips reauthentication, not consent.
+      description: HttpOnly, SameSite=Lax, Secure with HTTPS; independent of AI credentials. A valid existing human
+        login skips reauthentication, not consent.
   responses:
     Error:
       description: A fixed, non-sensitive error. Respect Retry-After for 429 and bounded 5xx retries.

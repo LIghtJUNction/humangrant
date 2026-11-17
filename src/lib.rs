@@ -5,7 +5,6 @@ pub mod crypto;
 pub mod db;
 pub mod error;
 pub mod human;
-pub mod mail;
 pub mod model;
 pub mod requests;
 pub mod web;
